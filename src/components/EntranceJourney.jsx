@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Play } from 'lucide-react';
 import { swapThemeVideo, playSafely } from '../lib/videoSwap';
+import Monogram from './Monogram';
 
 /**
  * ENTRANCE JOURNEY — the palace gate and the courtyard, in ONE component.
@@ -204,9 +205,7 @@ export default function EntranceJourney({ isNight, isMuted, onComplete }) {
 
       {/* ---------- Persistent header (no scene numbering: one story) ---------- */}
       <div className="absolute top-4 left-4 sm:top-7 sm:left-8 z-30 flex items-center gap-2.5 sm:gap-3.5">
-        <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-full border border-[#d4af37]/75 bg-[#090e1c]/85 backdrop-blur-md flex items-center justify-center text-[#dfba5c] shadow-[0_4px_22px_rgba(0,0,0,0.65)]">
-          <span className="font-cinzel text-[10px] sm:text-xs font-bold tracking-widest text-[#f3e5ab]">S&amp;S</span>
-        </div>
+        <Monogram className="w-[20px] sm:w-6 h-auto shrink-0 drop-shadow-[0_2px_10px_rgba(212,175,55,0.5)]" />
         <div>
           <p className="font-cinzel text-[8px] sm:text-[9px] tracking-[0.3em] uppercase text-[#dfba5c] leading-tight">
             Royal Wedding Celebration
@@ -233,9 +232,8 @@ export default function EntranceJourney({ isNight, isMuted, onComplete }) {
             ॥ श्री गणेशाय नमः ॥
           </div>
 
-          <div className="relative w-14 h-14 sm:w-20 sm:h-20 mb-3 sm:mb-4 rounded-full border border-[#d4af37]/80 flex items-center justify-center bg-gradient-to-b from-[#141e3d] to-[#080d1c] text-[#dfba5c] shadow-[0_0_35px_rgba(212,175,55,0.35)]">
-            <span className="font-cinzel text-base sm:text-xl font-bold tracking-widest text-[#f3e5ab]">S&amp;S</span>
-            <div className="absolute -top-1 w-2 h-2 rounded-full bg-[#d4af37] shadow-[0_0_8px_#d4af37]" />
+          <div className="relative w-14 h-16 sm:w-20 sm:h-24 mb-3 sm:mb-4 flex items-center justify-center text-[#dfba5c]">
+            <Monogram className="w-full h-full drop-shadow-[0_0_18px_rgba(212,175,55,0.45)]" />
           </div>
 
           <span className="font-sans-clean text-[9px] sm:text-[11px] tracking-[0.34em] uppercase text-[#dfba5c] mb-2 font-medium">

@@ -3,6 +3,7 @@ import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useGSAP } from '@gsap/react';
 import { Heart, Sparkles, ChevronDown } from 'lucide-react';
+import Monogram from './Monogram';
 
 gsap.registerPlugin(ScrollTrigger, useGSAP);
 
@@ -92,7 +93,7 @@ const COUPLE = [
 function WelcomeAct() {
   return (
     <div className="welcome-content absolute inset-0 z-30 flex flex-col items-center justify-center text-center px-5">
-      <div className="w-11 h-9 sm:w-14 sm:h-12 mb-2 text-[#d4af37] drop-shadow-[0_2px_8px_rgba(212,175,55,0.4)]">
+      <div className="w-[clamp(2rem,5dvh,3.5rem)] h-[clamp(1.6rem,4.2dvh,3rem)] mb-[clamp(0.25rem,1dvh,0.5rem)] text-[#d4af37] drop-shadow-[0_2px_8px_rgba(212,175,55,0.4)]">
         <svg viewBox="0 0 60 50" fill="none" stroke="currentColor" className="w-full h-full">
           <path d="M 30 4 L 30 10 M 28 6 L 32 6" strokeWidth="1.5" strokeLinecap="round" />
           <path d="M 30 10 C 23 11, 16 16, 16 26 L 44 26 C 44 16, 37 11, 30 10 Z" strokeWidth="1.4" fill="currentColor" fillOpacity="0.12" />
@@ -104,18 +105,18 @@ function WelcomeAct() {
         </svg>
       </div>
 
-      <p className="font-cinzel tracking-[0.32em] sm:tracking-[0.4em] uppercase text-[10px] sm:text-sm text-[#e6d0a7] font-medium mb-1 sm:mb-2 drop-shadow-[0_2px_6px_rgba(0,0,0,0.95)]">
+      <p className="font-cinzel tracking-[0.32em] sm:tracking-[0.4em] uppercase text-[clamp(0.5rem,1.5dvh,0.875rem)] text-[#e6d0a7] font-medium mb-[clamp(0.1rem,0.6dvh,0.5rem)] drop-shadow-[0_2px_6px_rgba(0,0,0,0.95)]">
         The Wedding Of
       </p>
 
       <h1
-        className="text-[2.6rem] leading-[1.15] sm:text-7xl md:text-8xl font-normal text-transparent bg-clip-text bg-gradient-to-r from-[#ebd6a7] via-[#fff5df] to-[#ebd6a7] drop-shadow-[0_4px_24px_rgba(0,0,0,0.95)]"
+        className="text-[clamp(1.85rem,8.4dvh,5.5rem)] leading-[1.12] font-normal text-transparent bg-clip-text bg-gradient-to-r from-[#ebd6a7] via-[#fff5df] to-[#ebd6a7] drop-shadow-[0_4px_24px_rgba(0,0,0,0.95)]"
         style={{ fontFamily: "'Great Vibes', cursive" }}
       >
         Simran Saxena &amp;<br />Sachit Srivastava
       </h1>
 
-      <div className="w-full max-w-sm sm:max-w-md my-3 sm:my-4">
+      <div className="w-full max-w-sm sm:max-w-md my-[clamp(0.4rem,1.6dvh,1rem)]">
         <div className="flex items-center justify-center gap-3 text-[#d4af37]">
           <span className="h-[1px] flex-1 bg-gradient-to-r from-transparent via-[#d4af37]/70 to-[#d4af37]" />
           <svg width="28" height="18" viewBox="0 0 40 24" fill="none" stroke="currentColor">
@@ -128,10 +129,10 @@ function WelcomeAct() {
         </div>
       </div>
 
-      <p className="font-cinzel tracking-[0.24em] sm:tracking-[0.28em] uppercase text-[9px] sm:text-xs text-[#ebd8b7] leading-relaxed drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)]">
+      <p className="font-cinzel tracking-[0.24em] sm:tracking-[0.28em] uppercase text-[clamp(0.45rem,1.35dvh,0.75rem)] text-[#ebd8b7] leading-relaxed drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)]">
         You Are Cordially Invited To
       </p>
-      <p className="font-cinzel tracking-[0.2em] sm:tracking-[0.24em] uppercase text-[11px] sm:text-sm text-[#fdfaf3] font-medium mt-1 drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)]">
+      <p className="font-cinzel tracking-[0.2em] sm:tracking-[0.24em] uppercase text-[clamp(0.55rem,1.5dvh,0.875rem)] text-[#fdfaf3] font-medium mt-1 drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)]">
         Celebrate Our Wedding
       </p>
     </div>
@@ -139,31 +140,38 @@ function WelcomeAct() {
 }
 
 /* ---------------------------------------------------------------- ACT B ---- */
+/**
+ * Sizes are driven by viewport HEIGHT (dvh), not fixed px. The old fixed
+ * values (h-64 portrait + text-6xl heading) could not shrink, so on a short or
+ * wide browser window the block grew taller than the 100dvh stage and
+ * `items-center` overflowed it in BOTH directions — which is what cropped
+ * "MEET THE" off the top of the page.
+ */
 function CoupleAct({ isNight }) {
   return (
-    <div className="absolute inset-0 flex items-center justify-center px-3 sm:px-6">
-      <div className="w-full max-w-5xl mx-auto flex flex-col items-center">
-        <div className="text-center mb-3 sm:mb-8">
-          <span className="font-cinzel text-[10px] sm:text-sm tracking-[0.35em] uppercase text-[#dfba5c] font-medium">
+    <div className="absolute inset-0 flex items-center justify-center px-3 sm:px-6 py-2">
+      <div className="w-full max-w-5xl mx-auto flex flex-col items-center max-h-full">
+        <div className="text-center mb-[clamp(0.35rem,1.4dvh,2rem)]">
+          <span className="font-cinzel text-[clamp(0.5rem,1.3dvh,0.875rem)] tracking-[0.35em] uppercase text-[#dfba5c] font-medium">
             Meet The
           </span>
-          <h2 className="font-cinzel text-xl sm:text-5xl md:text-6xl text-transparent bg-clip-text bg-gradient-to-r from-[#ebd6a7] via-[#fff5df] to-[#ebd6a7] font-semibold tracking-[0.1em] sm:tracking-[0.12em] mt-1 mb-2 drop-shadow-[0_4px_20px_rgba(0,0,0,0.9)]">
+          <h2 className="font-cinzel text-[clamp(1rem,3.4dvh,3.75rem)] text-transparent bg-clip-text bg-gradient-to-r from-[#ebd6a7] via-[#fff5df] to-[#ebd6a7] font-semibold tracking-[0.1em] sm:tracking-[0.12em] mt-1 mb-1 drop-shadow-[0_4px_20px_rgba(0,0,0,0.9)] leading-tight">
             BRIDE &amp; GROOM
           </h2>
           <div className="flex items-center justify-center gap-3 text-[#d4af37] max-w-xs mx-auto">
             <span className="h-[1px] flex-1 bg-gradient-to-r from-transparent via-[#d4af37]/70 to-[#d4af37]" />
-            <Sparkles className="w-4 h-4" />
+            <Sparkles className="w-3 h-3 sm:w-4 sm:h-4" />
             <span className="h-[1px] flex-1 bg-gradient-to-l from-transparent via-[#d4af37]/70 to-[#d4af37]" />
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-2.5 sm:gap-10 w-full max-w-3xl">
+        <div className="grid grid-cols-2 gap-[clamp(0.5rem,1.2dvh,2.5rem)] w-full max-w-3xl">
           {COUPLE.map((person) => (
             <div
               key={person.key}
-              className="relative flex flex-col items-center text-center p-2.5 sm:p-7 rounded-2xl bg-gradient-to-b from-[#101830] via-[#0b1022] to-[#050814] border border-[#d4af37]/60 shadow-[0_24px_60px_rgba(0,0,0,0.85),inset_0_0_30px_rgba(212,175,55,0.08)]"
+              className="relative flex flex-col items-center text-center p-[clamp(0.45rem,1.3dvh,1.75rem)] rounded-2xl bg-gradient-to-b from-[#101830] via-[#0b1022] to-[#050814] border border-[#d4af37]/60 shadow-[0_24px_60px_rgba(0,0,0,0.85),inset_0_0_30px_rgba(212,175,55,0.08)]"
             >
-              <div className="relative w-[4.5rem] sm:w-52 h-[6.5rem] sm:h-64 mb-2 sm:mb-5 rounded-t-full border-[2px] sm:border-4 border-[#d4af37]/80 overflow-hidden shadow-[0_15px_35px_rgba(0,0,0,0.7),0_0_20px_rgba(212,175,55,0.25)]">
+              <div className="relative w-[clamp(3rem,9dvh,13rem)] h-[clamp(4rem,15dvh,16rem)] mb-[clamp(0.25rem,1dvh,1.25rem)] rounded-t-full border-2 sm:border-4 border-[#d4af37]/80 overflow-hidden shadow-[0_15px_35px_rgba(0,0,0,0.7),0_0_20px_rgba(212,175,55,0.25)]">
                 <img
                   src={isNight ? person.night : person.day}
                   alt={person.alt}
@@ -172,26 +180,26 @@ function CoupleAct({ isNight }) {
                 <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent pointer-events-none" />
               </div>
 
-              <span className="font-cinzel text-[8px] sm:text-xs tracking-[0.24em] sm:tracking-[0.3em] uppercase text-[#dfba5c] font-semibold mb-1">
+              <span className="font-cinzel text-[clamp(0.4rem,1dvh,0.75rem)] tracking-[0.24em] sm:tracking-[0.3em] uppercase text-[#dfba5c] font-semibold mb-0.5">
                 {person.label}
               </span>
-              <h3 className="font-royal text-base sm:text-3xl text-[#fdfaf3] font-normal tracking-wide my-0.5 sm:my-1">
+              <h3 className="font-royal text-[clamp(0.75rem,2.3dvh,1.875rem)] text-[#fdfaf3] font-normal tracking-wide my-0.5 leading-tight">
                 {person.name}
               </h3>
-              <p className="font-serif-body text-[9px] sm:text-base text-[#dfba5c] italic tracking-wide mb-1.5 sm:mb-3 font-medium leading-snug">
+              <p className="font-serif-body text-[clamp(0.4rem,1.15dvh,1rem)] text-[#dfba5c] italic tracking-wide mb-[clamp(0.2rem,0.8dvh,0.75rem)] font-medium leading-snug">
                 {person.parents}
               </p>
-              <div className="w-12 sm:w-20 h-[1px] bg-gradient-to-r from-transparent via-[#d4af37]/80 to-transparent my-1 sm:my-2" />
-              <p className="font-serif-body text-[9px] sm:text-sm text-[#dad2c3] italic leading-snug sm:leading-relaxed max-w-sm">
+              <div className="w-12 sm:w-20 h-[1px] bg-gradient-to-r from-transparent via-[#d4af37]/80 to-transparent my-[clamp(0.1rem,0.5dvh,0.5rem)]" />
+              <p className="font-serif-body text-[clamp(0.4rem,1.1dvh,0.875rem)] text-[#dad2c3] italic leading-snug sm:leading-relaxed max-w-sm">
                 {person.bio}
               </p>
             </div>
           ))}
         </div>
 
-        <div className="flex items-center gap-3 mt-2.5 sm:mt-6 text-[#d4af37]">
+        <div className="flex items-center gap-3 mt-[clamp(0.25rem,1dvh,1.5rem)] text-[#d4af37]">
           <span className="w-12 sm:w-16 h-[1px] bg-[#d4af37]/40" />
-          <Heart className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-[#d4af37]/30 text-[#d4af37]" />
+          <Heart className="w-3 h-3 sm:w-4 sm:h-4 fill-[#d4af37]/30 text-[#d4af37]" />
           <span className="w-12 sm:w-16 h-[1px] bg-[#d4af37]/40" />
         </div>
       </div>
@@ -203,9 +211,14 @@ function CoupleAct({ isNight }) {
 /**
  * The quote, the gold flourish above it, the divider beneath it and the falling
  * rose petals are ALL drawn inside scroll-story-scrub.mp4 — the footage
- * typewrites the words as the playhead advances. So this act deliberately
- * renders no text of its own: the film is the single source of that animation.
- * (Adding HTML lines here is what previously printed the quote twice.)
+ * typewrites the words as the playhead advances, and both elephants visibly
+ * sway. So this act deliberately renders no text of its own: the film is the
+ * single source of that animation.
+ *
+ * IMPORTANT: never leave this element parked at frame 0. Frame 0 of the film
+ * has the elephants and the flourish but NO text and NO petals, so a video
+ * that is mounted but never advanced looks like "nothing is written here".
+ * The caller is responsible for driving currentTime as the page scrolls.
  */
 function StoryAct({ isNight }) {
   return (
@@ -242,32 +255,6 @@ function StoryAct({ isNight }) {
   );
 }
 
-/* ------------------------------------------------------------ REDUCED ------ */
-/** Respect prefers-reduced-motion: a calm, static vertical read. */
-function ReducedStory({ isNight }) {
-  return (
-    <div id="scroll-journey" className="w-full bg-[#050812] text-[#f7f2e7] font-serif-body">
-      <section className="relative min-h-[100dvh] flex items-center overflow-hidden">
-        <Backdrop daySrc={WELCOME_DAY} nightSrc={WELCOME_NIGHT} isNight={isNight} />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/35" />
-        <div className="relative z-10 w-full py-24">
-          <WelcomeAct />
-        </div>
-      </section>
-      <section className="relative min-h-[100dvh] flex items-center overflow-hidden">
-        <Backdrop daySrc={PALACE_DAY} nightSrc={PALACE_NIGHT} isNight={isNight} />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/35" />
-        <div className="relative z-10 w-full py-16">
-          <CoupleAct isNight={isNight} />
-        </div>
-      </section>
-      <section className="relative min-h-[100dvh] flex items-center overflow-hidden">
-        <StoryAct isNight={isNight} />
-      </section>
-    </div>
-  );
-}
-
 /* ---------------------------------------------------------------- MAIN ----- */
 export default function ScrollStory({ isNight }) {
   const trackRef = useRef(null);
@@ -284,10 +271,19 @@ export default function ScrollStory({ isNight }) {
 
   useGSAP(
     () => {
-      if (reduceMotion || !trackRef.current) return;
+      if (!trackRef.current) return;
 
       const video = trackRef.current.querySelector('.story-video');
       const frame = { t: 0 };
+
+      // Reduced motion does NOT get a different stage — that was the bug. A
+      // separate static branch mounted the film and never advanced it, leaving
+      // it parked on frame 0 (elephants + flourish, no text, no petals), which
+      // reads as "nothing is written here". Scrolling is user-driven, so it is
+      // not the kind of motion the setting is meant to suppress: we keep the
+      // same single stage and simply drop the decorative drift, use no scrub
+      // easing lag, and soften the transitions.
+      const drift = reduceMotion ? 0 : 1;
 
       const tl = gsap.timeline({
         defaults: { ease: 'none' },
@@ -295,13 +291,13 @@ export default function ScrollStory({ isNight }) {
           trigger: trackRef.current,
           start: 'top top',
           end: 'bottom bottom',
-          scrub: 0.6,
+          scrub: reduceMotion ? true : 0.6,
           invalidateOnRefresh: true,
         },
       });
 
       // ACT A leaves — the welcome title lifts and dissolves.
-      tl.to('.welcome-content', { opacity: 0, y: -70, duration: 0.14, ease: 'power1.in' }, 0.06);
+      tl.to('.welcome-content', { opacity: 0, y: -70 * drift, duration: 0.14, ease: 'power1.in' }, 0.06);
 
       // Backdrop A -> B blends in place (never slides, never empties). The
       // palace is faded IN over the welcome plate and then left fully opaque,
@@ -311,17 +307,19 @@ export default function ScrollStory({ isNight }) {
       // ACT B arrives, holds, then leaves.
       tl.fromTo(
         '.couple-content',
-        { opacity: 0, y: 46 },
+        { opacity: 0, y: 46 * drift },
         { opacity: 1, y: 0, duration: 0.16, ease: 'power2.out' },
         0.17,
       );
-      tl.to('.couple-content', { opacity: 0, y: -80, duration: 0.13, ease: 'power1.in' }, 0.43);
+      tl.to('.couple-content', { opacity: 0, y: -80 * drift, duration: 0.13, ease: 'power1.in' }, 0.43);
 
       // Backdrop B -> C blends in place. The palace is left fully opaque
       // underneath, so no lower layer can leak through mid-dissolve.
       tl.fromTo('.story-layer', { opacity: 0 }, { opacity: 1, duration: 0.16 }, 0.43);
 
-      // ACT C — the film is scrubbed by this one timeline.
+      // ACT C — the film is scrubbed by this one timeline. This is what draws
+      // the quote, the petals and the elephants' sway: without it the film sits
+      // on frame 0 and looks empty.
       tl.to(
         frame,
         {
@@ -340,8 +338,6 @@ export default function ScrollStory({ isNight }) {
     },
     { scope: trackRef, dependencies: [reduceMotion] },
   );
-
-  if (reduceMotion) return <ReducedStory isNight={isNight} />;
 
   return (
     <div ref={trackRef} id="scroll-journey" className="relative w-full bg-[#050812]" style={{ height: '480vh' }}>
@@ -415,9 +411,7 @@ export default function ScrollStory({ isNight }) {
 
         {/* ---- One header for the whole journey ---- */}
         <header className="absolute top-0 inset-x-0 z-40 px-4 sm:px-10 py-4 sm:py-6 flex items-center gap-3 pointer-events-none">
-          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full border border-[#d4af37]/60 bg-[#0c1222]/80 backdrop-blur-md flex items-center justify-center text-[#dfba5c] shadow-[0_4px_20px_rgba(0,0,0,0.5)] shrink-0">
-            <span className="font-cinzel text-xs font-semibold tracking-widest text-[#f3e5ab]">S&amp;S</span>
-          </div>
+          <Monogram className="w-[22px] sm:w-7 h-auto shrink-0 drop-shadow-[0_2px_10px_rgba(212,175,55,0.45)]" />
           <div className="text-left">
             <p className="font-cinzel text-[8px] sm:text-[9px] tracking-[0.3em] uppercase text-[#dfba5c] leading-none mb-1">
               Royal Wedding
