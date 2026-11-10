@@ -1,120 +1,105 @@
 import React, { useState, useEffect } from 'react';
-import PalaceEntranceScene from './components/PalaceEntranceScene';
-import RoyalCourtyardScene from './components/RoyalCourtyardScene';
-import WeddingWelcomeScene from './components/WeddingWelcomeScene';
-import MeetBrideGroomScene from './components/MeetBrideGroomScene';
-import ScrollInvitationScene from './components/ScrollInvitationScene';
+import EntranceJourney from './components/EntranceJourney';
+import ScrollStory from './components/ScrollStory';
+import GlobalControls from './components/GlobalControls';
+
+/**
+ * TWO MOMENTS, ONE JOURNEY
+ *
+ *   1  EntranceJourney — invitation card, palace gate film, courtyard film.
+ *                         All four videos live in one component, so nothing
+ *                         unmounts between the gate and the courtyard.
+ *
+ *   2  ScrollStory     — the welcome, the couple and our story as THREE ACTS of
+ *                         one scrolling stage. No "next screen", no button: the
+ *                         visitor just keeps scrolling and one scene dissolves
+ *                         into the next, the way a portfolio page reads.
+ *
+ * THE HAND-OFF (this is what kills the black moment)
+ * --------------------------------------------------
+ * When the courtyard film ends, the entrance does NOT unmount and does not
+ * fade out. It freezes on its final frame, fully opaque, as a fixed layer.
+ * Then the scroll stage — mounted in normal document flow so it owns the
+ * scrollbar immediately — fades IN ON TOP of it, from 0 to 1.
+ *
+ * The scroll stage's bottom layer is that very same final frame, extracted from
+ * the film at the same 1280x720. So while the dissolve runs, both layers are
+ * showing the identical image: the screen never goes dark, and when the
+ * entrance is finally removed a moment later the pixels have not changed.
+ *
+ * Fading the *incoming* layer up over the outgoing one (instead of fading the
+ * outgoing one down) is the whole trick — a fade-to-zero of the only opaque
+ * layer would expose the page background, which is the black gap the user saw.
+ *
+ * Day/Night and sound are rendered once, above everything, so there is a
+ * single toggle for the whole journey.
+ */
+
+const FADE_MS = 900;
 
 export default function App() {
-  // Navigation mode: 
-  // 1: Scene 1 (Palace Gate Entrance)
-  // 2: Scene 2 (Royal Courtyard Video Reveal)
-  // 3: Scene 3 (Cinematic Wedding Welcome Overlay)
-  // 4: Continuous Scroll Story: Scene 4 (Meet Bride & Groom) seamlessly flowing into Scene 5 (Video Scroll Story)
-  const [currentScene, setCurrentScene] = useState(1);
   const [isNight, setIsNight] = useState(false);
+  const [isMuted, setIsMuted] = useState(true);
 
-  useEffect(() => { window.scrollTo(0, 0); }, [currentScene]);
+  // 'entrance' -> only the entrance
+  // 'handoff'  -> entrance frozen underneath, scroll stage fading in above it
+  // 'story'    -> only the scroll stage
+  const [stage, setStage] = useState('entrance');
+  const [revealed, setRevealed] = useState(false);
 
-  const handleToggleNight = (nextNight) => {
-    setIsNight(nextNight);
+  const handleEntranceComplete = () => {
+    window.scrollTo(0, 0);
+    setStage('handoff');
   };
 
-  const sceneTitles = [
-    { id: 1, name: 'Scene 1: Gate Entrance' },
-    { id: 2, name: 'Scene 2: Courtyard Reveal' },
-    { id: 3, name: 'Scene 3: Welcome Overlay' },
-    { id: 4, name: 'Scene 4 & 5: Continuous Scroll Invitation' },
-  ];
+  useEffect(() => {
+    if (stage !== 'handoff') return;
+    // Commit one frame at opacity 0 so the browser can actually animate to 1.
+    const raf = requestAnimationFrame(() => setRevealed(true));
+    const id = setTimeout(() => setStage('story'), FADE_MS + 120);
+    return () => {
+      cancelAnimationFrame(raf);
+      clearTimeout(id);
+    };
+  }, [stage]);
+
+  const toggleNight = () => setIsNight((v) => !v);
+  const toggleMute = () => setIsMuted((v) => !v);
 
   return (
     <main className="w-full min-h-screen bg-[#040711] text-[#f7f2e7] selection:bg-[#d4af37]/30 selection:text-white">
-      
-      {/* =======================================================================
-          SCENE 01: PALACE ENTRANCE GATE
-          ======================================================================= */}
-      {currentScene === 1 && (
-        <PalaceEntranceScene 
-          isNight={isNight}
-          onToggleNight={handleToggleNight}
-          onProceedToScene2={() => setCurrentScene(2)} 
-        />
-      )}
+      <GlobalControls
+        isNight={isNight}
+        onToggleNight={toggleNight}
+        isMuted={isMuted}
+        onToggleMute={toggleMute}
+      />
 
-      {/* =======================================================================
-          SCENE 02: THE GRAND ROYAL COURTYARD REVEAL
-          ======================================================================= */}
-      {currentScene === 2 && (
-        <RoyalCourtyardScene 
-          isNight={isNight}
-          onToggleNight={handleToggleNight}
-          onSceneComplete={() => setCurrentScene(3)}
-        />
-      )}
-
-      {/* =======================================================================
-          SCENE 03: CINEMATIC WEDDING WELCOME SCREEN
-          ======================================================================= */}
-      {currentScene === 3 && (
-        <WeddingWelcomeScene 
-          isNight={isNight}
-          onToggleNight={handleToggleNight}
-          onContinue={() => setCurrentScene(4)}
-        />
-      )}
-
-      {/* =======================================================================
-          SCENE 04 & 05: SEAMLESS SCROLLING INVITATION (PORTFOLIO STYLE)
-          Scene 4 (Meet Bride & Groom) is completely visible at the top,
-          and scrolling down continues directly into Scene 5 (Scroll Story on Video)
-          ======================================================================= */}
-      {currentScene === 4 && (
-        <div className="relative w-full">
-          
-          {/* Section 4: Meet The Bride & Groom */}
-          <MeetBrideGroomScene 
-            isNight={isNight}
-            onToggleNight={handleToggleNight}
-       ack={() => setCurrentScene(3)}
-          />
-
-          {/* Section 5: Real Video Scroll Story (animating line-by-line quote & petals) */}
-          <ScrollInvitationScene 
-            isNight={isNight}
-            onToggleNight={handleToggleNight}
-            onContinue={() => {
-              console.log("Completed Scroll Story.");
-            }}
-          />
-
+      {/* Normal document flow (it must own the scrollbar), but stacked ABOVE
+          the frozen entrance while it dissolves in. */}
+      {stage !== 'entrance' && (
+        <div
+          className={`relative z-[55] transition-opacity duration-[900ms] ease-linear ${
+            revealed ? 'opacity-100' : 'opacity-0'
+          }`}
+        >
+          <ScrollStory isNight={isNight} />
         </div>
       )}
 
-      {/* =======================================================================
-          FLOATING SCENE SWITCHER DOCK (BOTTOM CENTER)
-          Allows 1-click preview of any scene or the full scrolling story
-          ======================================================================= */}
-      {import.meta.env.DEV && (
-      <div className="fixed bottom-3 left-1/2 -translate-x-1/2 z-50 flex items-center gap-1.5 p-1 rounded-full bg-[#080d1a]/90 border border-[#d4af37]/50 shadow-[0_8px_30px_rgba(0,0,0,0.85)] backdrop-blur-xl">
-        {sceneTitles.map((scene) => (
-          <button
-            key={scene.id}
-            onClick={() => {
-              setCurrentScene(scene.id);
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-            }}
-            className={`px-3 sm:px-4 py-1.5 rounded-full text-[10px] font-cinzel tracking-wider uppercase transition-all duration-300 ${
-              currentScene === scene.id
-                ? 'bg-gradient-to-r from-[#ba8c22] via-[#e5c56c] to-[#ba8c22] text-[#050814] font-bold shadow-md'
-                : 'text-[#d4af37]/80 hover:text-white hover:bg-white/5'
-            }`}
-          >
-            {scene.name.split(':')[0]}
-          </button>
-        ))}
-      </div>
+      {/* Stays fully opaque on its last frame until the scroll stage has
+          covered it completely, then unmounts. */}
+      {stage !== 'story' && (
+        <div
+          className={`fixed inset-0 z-50 ${stage === 'handoff' ? 'pointer-events-none' : ''}`}
+        >
+          <EntranceJourney
+            isNight={isNight}
+            isMuted={isMuted}
+            onComplete={handleEntranceComplete}
+          />
+        </div>
       )}
-
     </main>
   );
 }
