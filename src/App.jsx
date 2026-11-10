@@ -48,7 +48,6 @@ export default function App() {
         <RoyalCourtyardScene 
           isNight={isNight}
           onToggleNight={handleToggleNight}
-          onBackToScene1={() => setCurrentScene(1)}
           onSceneComplete={() => setCurrentScene(3)}
         />
       )}
@@ -60,7 +59,6 @@ export default function App() {
         <WeddingWelcomeScene 
           isNight={isNight}
           onToggleNight={handleToggleNight}
-          onBack={() => setCurrentScene(2)}
           onContinue={() => setCurrentScene(4)}
         />
       )}
@@ -77,7 +75,7 @@ export default function App() {
           <MeetBrideGroomScene 
             isNight={isNight}
             onToggleNight={handleToggleNight}
-            onBack={() => setCurrentScene(3)}
+       ack={() => setCurrentScene(3)}
           />
 
           {/* Section 5: Real Video Scroll Story (animating line-by-line quote & petals) */}

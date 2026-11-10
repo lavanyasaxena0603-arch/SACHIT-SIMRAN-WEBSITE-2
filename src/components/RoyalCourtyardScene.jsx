@@ -4,13 +4,9 @@ import {
   Moon, 
   Volume2, 
   VolumeX, 
-  Sparkles, 
-  Play, 
-  RotateCcw,
   Upload,
   ChevronDown,
-  ChevronUp,
-  ArrowLeft
+  ChevronUp
 } from 'lucide-react';
 
 /**
@@ -32,16 +28,14 @@ const DEFAULT_NIGHT_COURTYARD = "/assets/scene2/night-courtyard.mp4";
 export default function RoyalCourtyardScene({
   isNight: controlledIsNight,
   onToggleNight,
-  onBackToScene1,
   onSceneComplete
 }) {
   // Day / Night state (independent or controlled by parent)
   const [internalIsNight, setInternalIsNight] = useState(false);
   const activeIsNight = controlledIsNight !== undefined ? controlledIsNight : internalIsNight;
 
-  // Scene playback states
-  const [hasStarted, setHasStarted] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false);
+  // Scene playback states — Scene 02 now runs by itself, so it is "started" on mount.
+  const [isPlaying, setIsPlaying] = useState(true);
   const [isSceneFinished, setIsSceneFinished] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
 
@@ -92,65 +86,52 @@ export default function RoyalCourtyardScene({
     if (nightVideoRef.current) nightVideoRef.current.load();
   }, [dayVideoSrc, nightVideoSrc]);
 
-  // Soften initial golden entrance light flash from Scene 01
+  // Soften the golden entrance light flash inherited from Scene 01.
+  // Scene 02 mounts the instant Scene 01's footage ends, so this runs on mount.
   useEffect(() => {
-    if (hasStarted) {
-      const timeout = setTimeout(() => {
-        setLightBurstOpacity(0);
-      }, 350);
-      return () => clearTimeout(timeout);
-    }
-  }, [hasStarted]);
+    const timeout = setTimeout(() => {
+      setLightBurstOpacity(0);
+    }, 350);
+    return () => clearTimeout(timeout);
+  }, []);
 
   // Safe video play helper
   const safePlay = async (video) => {
-    if (!video) return;
+    if (!video) return false;
     try {
-      if (video.paused) {
-        await video.play();
-      }
+      await video.play();
+      return true;
     } catch (err) {
       if (err.name !== 'AbortError') {
         console.warn('Playback error caught:', err);
       }
+      return false;
     }
   };
 
-  // Start the scene from the courtyard reveal trigger
-  const handleStartScene = () => {
-    setHasStarted(true);
+  // Scene 02 is fully automatic: the courtyard footage begins the moment this
+  // scene mounts, because Scene 01 hands over from its own `onEnded`. There is
+  // no intro card, no button and no black gap between the two scenes.
+  const hasAutoStartedRef = useRef(false);
+
+  const beginPlayback = useCallback(async () => {
+    if (hasAutoStartedRef.current) return;
+    const activeVideo = activeIsNight ? nightVideoRef.current : dayVideoRef.current;
+    if (!activeVideo) return;
+
     setIsPlaying(true);
     setIsSceneFinished(false);
     simCurrentTimeRef.current = 0;
+    if (activeVideo.ended) activeVideo.currentTime = 0;
 
-    if (dayVideoSrc && dayVideoRef.current) {
-      dayVideoRef.current.currentTime = 0;
-      dayVideoRef.current.muted = activeIsNight ? true : isMuted;
-      if (!activeIsNight) safePlay(dayVideoRef.current);
-    }
-    if (nightVideoSrc && nightVideoRef.current) {
-      nightVideoRef.current.currentTime = 0;
-      nightVideoRef.current.muted = activeIsNight ? isMuted : true;
-      if (activeIsNight) safePlay(nightVideoRef.current);
-    }
-  };
+    const ok = await safePlay(activeVideo);
+    if (ok) hasAutoStartedRef.current = true;
+  }, [activeIsNight]);
 
-  // Replay scene
-  const handleReplay = () => {
-    setLightBurstOpacity(1);
-    setIsSceneFinished(false);
-    simCurrentTimeRef.current = 0;
-
-    if (dayVideoRef.current) dayVideoRef.current.currentTime = 0;
-    if (nightVideoRef.current) nightVideoRef.current.currentTime = 0;
-
-    setTimeout(() => {
-      setLightBurstOpacity(0);
-      const activeVideo = activeIsNight ? nightVideoRef.current : dayVideoRef.current;
-      if (activeVideo) safePlay(activeVideo);
-      setIsPlaying(true);
-    }, 300);
-  };
+  // Start on mount, and retry once the footage can actually play.
+  useEffect(() => {
+    beginPlayback();
+  }, [beginPlayback, dayVideoSrc, nightVideoSrc]);
 
   // Synchronized Day / Night Switching
   const handleDayNightToggle = useCallback(async () => {
@@ -222,7 +203,7 @@ export default function RoyalCourtyardScene({
 
   // High-fidelity procedural courtyard canvas rendering (runs if no videos or behind them)
   useEffect(() => {
-    if (!hasStarted || dayVideoSrc) return; // canvas is only a fallback when no video exists
+    if (dayVideoSrc) return; // canvas is only a fallback when no video exists
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
@@ -461,7 +442,7 @@ export default function RoyalCourtyardScene({
     return () => {
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
     };
-  }, [hasStarted, isPlaying, isSceneFinished, activeIsNight, onSceneComplete, dayVideoSrc]);
+  }, [isPlaying, isSceneFinished, activeIsNight, onSceneComplete, dayVideoSrc]);
 
   // Video loop & end sync
   const handleVideoEnded = () => {
@@ -602,80 +583,6 @@ export default function RoyalCourtyardScene({
           />
         </button>
       </div>
-
-      {/* =========================================================================
-          OPENING INVITATION TRIGGER (IF SCENE NOT STARTED)
-          ========================================================================= */}
-      {!hasStarted && (
-        <div
-          onClick={handleStartScene}
-          className="absolute inset-0 z-40 flex items-center justify-center p-4 sm:p-6 bg-[#040711]/70 backdrop-blur-md cursor-pointer transition-opacity duration-1000"
-        >
-          <div 
-            onClick={(e) => e.stopPropagation()}
-            className="relative max-w-xl w-full p-8 sm:p-12 rounded-2xl bg-gradient-to-b from-[#101830]/95 via-[#0b1022]/95 to-[#050814]/98 border border-[#d4af37]/70 shadow-[0_30px_90px_rgba(0,0,0,0.9),inset_0_0_50px_rgba(212,175,55,0.12)] text-center flex flex-col items-center"
-          >
-            <div className="w-16 h-16 sm:w-20 sm:h-20 mb-4 rounded-full border border-[#d4af37]/80 flex items-center justify-center bg-gradient-to-b from-[#141e3d] to-[#080d1c] text-[#dfba5c] shadow-[0_0_35px_rgba(212,175,55,0.35)]">
-              <Sparkles className="w-7 h-7 sm:w-8 sm:h-8 stroke-[1.6]" />
-            </div>
-
-            <span className="font-sans-clean text-[10px] sm:text-[11px] tracking-[0.38em] uppercase text-[#dfba5c] mb-2 font-medium">
-              Royal Wedding Celebration
-            </span>
-
-            <h1 className="font-cinzel text-2xl sm:text-4xl text-[#fdfaf2] font-semibold tracking-[0.16em] mb-2">
-              SIMRAN &amp; SACHIT
-            </h1>
-
-            <div className="flex items-center gap-3 w-full max-w-xs my-2.5">
-              <div className="h-[1px] flex-1 bg-gradient-to-r from-transparent via-[#d4af37]/70 to-[#d4af37]" />
-              <div className="w-2 h-2 rotate-45 border border-[#d4af37] bg-[#d4af37]/30" />
-              <div className="h-[1px] flex-1 bg-gradient-to-l from-transparent via-[#d4af37]/70 to-[#d4af37]" />
-            </div>
-
-            <p className="font-serif-body text-base sm:text-lg text-[#ece5d8] italic max-w-md leading-relaxed my-2">
-              Scene 02: The Grand Royal Courtyard. Step inside to witness the grand marble fountains, rose petals, and panoramic palace arches.
-            </p>
-
-            <button
-              onClick={handleStartScene}
-              className="group relative inline-flex items-center gap-3 px-8 sm:px-10 py-3.5 sm:py-4 mt-4 rounded-full bg-gradient-to-r from-[#ba8c22] via-[#e5c56c] to-[#ba8c22] text-[#060a15] font-cinzel font-bold text-xs sm:text-sm tracking-[0.25em] uppercase shadow-[0_0_35px_rgba(212,175,55,0.5)] hover:shadow-[0_0_50px_rgba(212,175,55,0.7)] hover:scale-105 active:scale-95 transition-all duration-300"
-            >
-              <span>Reveal Courtyard</span>
-              <Play className="w-3.5 h-3.5 fill-current stroke-none transition-transform group-hover:translate-x-0.5" />
-            </button>
-
-            <span className="font-sans-clean text-[10px] text-[#9c9381] tracking-widest uppercase mt-5">
-              Tap anywhere or click above to begin Scene 02
-            </span>
-          </div>
-        </div>
-      )}
-
-      {/* =========================================================================
-          BOTTOM NAVIGATION BAR (BACK TO SCENE 1 & REPLAY)
-          ========================================================================= */}
-      {hasStarted && (
-        <div className="absolute bottom-6 right-6 sm:bottom-8 sm:right-8 z-30 flex items-center gap-3">
-          {onBackToScene1 && (
-            <button
-              onClick={onBackToScene1}
-              className="flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-full bg-[#080d1a]/85 hover:bg-[#121c36]/95 border border-[#d4af37]/60 text-[#dfba5c] text-xs font-cinzel tracking-wider backdrop-blur-md shadow-lg transition-all hover:scale-105"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Back: Palace Gate</span>
-            </button>
-          )}
-
-          <button
-            onClick={handleReplay}
-            className="flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-full bg-gradient-to-r from-[#ba8c22] via-[#e5c56c] to-[#ba8c22] text-[#060a15] font-cinzel font-semibold text-xs tracking-wider shadow-[0_0_20px_rgba(212,175,55,0.4)] transition-all hover:scale-105 active:scale-95"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span>Replay Courtyard</span>
-          </button>
-        </div>
-      )}
 
       {/* =========================================================================
           DISCREET ASSET INSPECTOR (BOTTOM-LEFT)

@@ -6,9 +6,7 @@ import {
   Sparkles,
   Volume2,
   VolumeX,
-  Upload,
-  RotateCcw,
-  ArrowRight
+  Upload
 } from 'lucide-react';
 
 /**
@@ -293,17 +291,6 @@ export default function PalaceEntranceScene({
           ========================================================================= */}
       <div className="absolute top-6 right-6 sm:top-8 sm:right-8 z-30 flex items-center gap-2.5 sm:gap-3">
         
-        {/* Reset Gate Button (Visible during video playback) */}
-        {isPlayingVideo && (
-          <button
-            onClick={handleResetGate}
-            title="Re-open Invitation Gate Card"
-            className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-[#090e1c]/80 hover:bg-[#121a33]/95 border border-[#d4af37]/50 flex items-center justify-center text-[#dfba5c] backdrop-blur-md transition-all active:scale-95 shadow-[0_4px_20px_rgba(0,0,0,0.6)]"
-          >
-            <RotateCcw className="w-4 h-4 text-[#dfba5c]" />
-          </button>
-        )}
-
         {/* Audio Mute/Unmute */}
         <button
           onClick={toggleSound}
@@ -396,14 +383,9 @@ export default function PalaceEntranceScene({
               <div className="h-[1px] flex-1 bg-gradient-to-l from-transparent via-[#d4af37]/70 to-[#d4af37]" />
             </div>
 
-            <p className="font-serif-body text-base sm:text-lg text-[#ece5d8] italic max-w-md leading-relaxed my-2">
+            <p className="font-serif-body text-base sm:text-lg text-[#ece5d8] italic max-w-md leading-relaxed my-2 mb-7">
               Cordially invite you to celebrate their auspicious union amidst royal splendour.
             </p>
-
-            <div className="font-sans-clean text-[10px] sm:text-[11px] tracking-[0.25em] uppercase text-[#c7beaf] mb-7 space-y-1">
-              <p className="text-[#dfba5c] font-semibold">SCENE 01 — THE PALACE ENTRANCE</p>
-              <p>Experience the grand sandstone gates &amp; the thousand lamps.</p>
-            </div>
 
             {/* Action CTA Button */}
             <button
@@ -413,33 +395,7 @@ export default function PalaceEntranceScene({
               <span>Enter The Palace</span>
               <Play className="w-3.5 h-3.5 fill-current stroke-none transition-transform group-hover:translate-x-0.5" />
             </button>
-
-            <span className="font-sans-clean text-[10px] text-[#9c9381] tracking-widest uppercase mt-5">
-              Tap anywhere or click above to begin the cinematic journey
-            </span>
           </div>
-        </div>
-      )}
-
-      {/* =========================================================================
-          BOTTOM-RIGHT FLOATING SCENE 2 NAVIGATION / REVEAL TEASER
-          ========================================================================= */}
-      {isPlayingVideo && (
-        <div className="absolute bottom-6 right-6 sm:bottom-8 sm:right-8 z-30 flex items-center gap-3">
-          <button
-            onClick={() => {
-              if (onProceedToScene2) {
-                onProceedToScene2();
-              } else {
-                
-              }
-            }}
-            className="group flex items-center gap-3 px-5 sm:px-6 py-2.5 sm:py-3 rounded-full bg-[#080d1a]/85 hover:bg-[#121c36]/95 border border-[#d4af37]/70 text-[#fdfaf2] text-xs sm:text-sm font-cinzel tracking-wider backdrop-blur-md shadow-[0_6px_25px_rgba(0,0,0,0.7)] transition-all hover:scale-105"
-          >
-            <span className="text-[#dfba5c]">Next: Scene 2</span>
-            <span className="hidden sm:inline text-white/90">Palace Courtyard</span>
-            <ArrowRight className="w-4 h-4 text-[#dfba5c] transition-transform group-hover:translate-x-1" />
-          </button>
         </div>
       )}
 

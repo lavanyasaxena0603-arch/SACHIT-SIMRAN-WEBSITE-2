@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Sun, Moon, Volume2, VolumeX, ArrowLeft } from 'lucide-react';
+import { Sun, Moon, Volume2, VolumeX } from 'lucide-react';
 
 /**
  * SIMRAN SAXENA & SACHIT SRIVASTAVA — ROYAL WEDDING WEBSITE
@@ -12,7 +12,6 @@ const NIGHT_WELCOME_BG = "/assets/scene3/welcome-night.jpg";
 export default function WeddingWelcomeScene({
   isNight: controlledIsNight,
   onToggleNight,
-  onBack,
   onContinue
 }) {
   const [internalIsNight, setInternalIsNight] = useState(false);
@@ -89,16 +88,6 @@ export default function WeddingWelcomeScene({
         {/* TOP NAVIGATION: ROYAL MONOGRAM & FLOATING DAY/NIGHT PILL */}
         <header className="absolute top-0 inset-x-0 z-40 px-3 sm:px-10 py-4 sm:py-6 flex items-center justify-between gap-2 pointer-events-auto">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-            {onBack && (
-              <button
-                onClick={onBack}
-                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full bg-[#090e1c]/80 hover:bg-[#121c36]/95 border border-[#d4af37]/50 text-[#dfba5c] text-[10px] sm:text-xs font-cinzel backdrop-blur-md transition-all active:scale-95 shadow-md mr-0.5 sm:mr-1 whitespace-nowrap"
-              >
-                <ArrowLeft className="w-3 h-3 sm:w-3.5 sm:h-3.5 shrink-0" />
-                <span>Courtyard</span>
-              </button>
-            )}
-
             <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full border border-[#d4af37]/60 bg-[#0c1222]/80 backdrop-blur-md flex items-center justify-center text-[#dfba5c] shadow-[0_4px_20px_rgba(0,0,0,0.5)]">
               <span className="text-xs font-semibold tracking-widest font-cinzel">S&amp;S</span>
             </div>

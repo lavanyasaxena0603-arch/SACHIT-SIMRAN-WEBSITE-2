@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useGSAP } from '@gsap/react';
-import { Sun, Moon, Volume2, VolumeX, Sparkles, ArrowLeft, Heart } from 'lucide-react';
+import { Sun, Moon, Volume2, VolumeX, Sparkles, Heart } from 'lucide-react';
 
 /**
  * SIMRAN SAXENA & SACHIT SRIVASTAVA — ROYAL WEDDING WEBSITE
@@ -25,7 +25,6 @@ gsap.registerPlugin(ScrollTrigger, useGSAP);
 export default function MeetBrideGroomScene({
   isNight: controlledIsNight,
   onToggleNight,
-  onBack,
   onScrollToNext: _onScrollToNext
 }) {
   const [internalIsNight, setInternalIsNight] = useState(false);
@@ -103,16 +102,6 @@ export default function MeetBrideGroomScene({
           ========================================================================= */}
       <header className="relative z-30 px-6 sm:px-10 py-6 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          {onBack && (
-            <button
-              onClick={onBack}
-              className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#090e1c]/80 hover:bg-[#121c36]/95 border border-[#d4af37]/50 text-[#dfba5c] text-xs font-cinzel backdrop-blur-md transition-all active:scale-95 shadow-md"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Back</span>
-            </button>
-          )}
-
           <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full border border-[#d4af37]/60 bg-[#0c1222]/85 backdrop-blur-md flex items-center justify-center text-[#dfba5c] shadow-[0_4px_20px_rgba(0,0,0,0.5)]">
             <span className="font-cinzel text-xs font-semibold tracking-widest text-[#f3e5ab]">S&amp;S</span>
           </div>
@@ -295,4 +284,5 @@ export default function MeetBrideGroomScene({
     </div>
   );
 }
+
 
