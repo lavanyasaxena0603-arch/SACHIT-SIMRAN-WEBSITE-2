@@ -47,23 +47,27 @@ const STILL = '/assets/finale/palace-still.webp';
 const STILL_FALLBACK = '/assets/finale/palace-still.png';
 const FILM = '/assets/finale/varmala-fireworks-night.mp4';
 const FILM_POSTER = '/assets/finale/varmala-poster.jpg';
-const SCROLL_ART = '/assets/finale/invitation-scroll-v2.png';
-/* The supplied invitation card, cut from the photograph with a feathered matte
-   and colour-decontaminated rim (no halo, no pinholes, ornaments intact).
-   Lossless WebP of the same pixels: 979,657 B -> 720,750 B. The PNG stays as
-   the <img> fallback for any engine without WebP. */
-const SCROLL_ART_WEBP = '/assets/finale/invitation-scroll-v2.webp';
-/* Native size of the artwork. The card is never stretched beyond this by more
-   than the small cap below, so it cannot turn to mush on a large display. */
-const ART_W = 515;
-const ART_H = 787;
-const ART_RATIO = ART_H / ART_W;
+/* THE ROLLING INVITATION — supplied by the couple, played as supplied.
 
-/* The card is introduced, not unrolled. Its own top and bottom rollers are
-   already painted into the artwork, so a physical clip-path unroll was fighting
-   the picture — it cut the sheet in half and dragged a gold "leading edge"
-   across already-drawn rollers. The reveal is now a rise + settle. */
-const RISE_MS = 1150;
+   720x1280 portrait, 10.0s, 24fps, with its own fireworks on black. The film
+   ALREADY CONTAINS the entire unroll, so there is no CSS unroll here, no
+   clip-path, no scaleY and no synthetic "leading edge" anywhere in this file.
+   The previous hand-built unroll was fighting artwork that already had rollers
+   painted on it, which is what cut the sheet in half.
+
+   Its final frame is the fully open, readable invitation. The element never
+   loops and is never rewound, so that frame simply stays on screen. */
+const ROLL = '/assets/finale/invitation-roll.mp4';
+const ROLL_POSTER = '/assets/finale/invitation-roll-poster.jpg';
+
+/* Timings. The palace establishes itself first, then the invitation descends
+   over it while the fireworks keep running behind. */
+const ROLL_DELAY_MS = 700;
+const RISE_MS = 900;
+const ROLL_MS = 10.0 * 1000;
+/* Nothing may ever strand the visitor: if no `ended` arrives at all, the
+   chapter still resolves. */
+const FAILSAFE_MS = ROLL_DELAY_MS + ROLL_MS + 2400;
 
 /* The printed invitation, in the order it is typeset on the parchment. The
    artwork is a fully typeset sheet, so this copy is what assistive technology
@@ -127,9 +131,9 @@ export default function FinaleSection() {
     window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   const [reduce] = useState(prefersReduce);
-  // Under reduced motion the invitation is simply already open.
   const [phase, setPhase] = useState(() => (prefersReduce() ? 'hold' : 'reveal'));
   const [needsTap, setNeedsTap] = useState(false);
+  const rollRef = useRef(null);
 
   const stateRef = useRef({ started: false, timers: [], done: false });
 
@@ -137,6 +141,12 @@ export default function FinaleSection() {
   useEffect(() => {
     const section = sectionRef.current;
     const video = videoRef.current;
+    // Snapshot the roll element ONCE. Reading `rollRef.current` inside the
+    // cleanup is a real bug, not just a lint nit: by teardown the ref can point
+    // at null (or a different node), so the listener we are trying to remove is
+    // never the listener that was added, and the `ended` handler leaks — a
+    // remount then fires it against a dead component.
+    const roll = rollRef.current;
     if (!section) return undefined;
 
     const s = stateRef.current;
@@ -185,22 +195,38 @@ export default function FinaleSection() {
       if (s.started) return;
       s.started = true;
       setPhase('motion');
+      // ACT 2 — the palace celebration. Once, muted, inline.
       if (video) {
         video.currentTime = 0;
         ensurePlaying(video).then((ok) => {
           // Only after every retry has failed is the tap the honest answer.
-          // A single rejection used to show the play button on a film that was
-          // about to start by itself.
           if (!ok) setNeedsTap(true);
         });
       }
-      // Failsafe. If `ended` never fires (stalled network, decode error, a
-      // browser that silently refused), the invitation still opens.
-      later(openScroll, (8.041667 + 2.4) * 1000);
+
+      // ACT 3 — the invitation unrolls over it a beat later, so the palace is
+      // already established when the scroll begins its descent.
+      later(startRoll, ROLL_DELAY_MS);
+
+      // Failsafe: if neither `ended` ever arrives, the chapter still resolves.
+      later(openScroll, FAILSAFE_MS);
     };
 
-    const onEnded = () => openScroll();
-    if (video) video.addEventListener('ended', onEnded);
+    const startRoll = () => {
+      const r = roll;
+      if (!r) return;
+      try {
+        r.currentTime = 0;
+      } catch {
+        /* poster-only; play() still works */
+      }
+      ensurePlaying(r);
+    };
+
+    // The supplied film is what advances the chapter. The fireworks layer has no
+    // `ended` handler: it simply holds its last frame once it finishes.
+    const onEndedRoll = () => openScroll();
+    if (roll) roll.addEventListener('ended', onEndedRoll);
 
     const io = new IntersectionObserver(
       (entries) => {
@@ -222,10 +248,11 @@ export default function FinaleSection() {
     return () => {
       io.disconnect();
       clearTimers();
-      if (video) {
-        video.removeEventListener('ended', onEnded);
-        video.pause();
+      if (roll) {
+        roll.removeEventListener('ended', onEndedRoll);
+        roll.pause();
       }
+      if (video) video.pause();
     };
     // `reduce` is a useState snapshot taken once at mount, so it can never
     // change and this effect can never re-run. Listing it is still correct: the
@@ -239,7 +266,9 @@ export default function FinaleSection() {
     return () => cancelAnimationFrame(id);
   }, []);
 
-  const scrollIn = phase === 'enter' || phase === 'hold';
+  // The invitation layer is present as soon as the act begins; its own film
+  // supplies the unroll, this only adds the cinematic rise into frame.
+  const showRoll = phase !== 'reveal';
   const showingFilm = phase === 'motion' || phase === 'enter' || phase === 'hold';
 
   const ease = 'cubic-bezier(.18,.78,.18,1)';
@@ -249,11 +278,28 @@ export default function FinaleSection() {
       ref={sectionRef}
       id="finale"
       aria-label="The royal wedding finale"
-      className="relative h-[100dvh] w-full"
+      className="relative min-h-[100dvh] w-full"
     >
-      <div className="sticky top-0 h-[100dvh] w-full overflow-hidden bg-[#04070f]">
+      {/* NO `sticky`, NO `fixed` — DELIBERATELY.
+
+          This used to be `h-[100dvh]` wrapping a `sticky top-0 h-[100dvh]`
+          child. A sticky element inside a parent of exactly the same height has
+          zero travel, so it did not pin gradually: the instant the section's top
+          edge reached the viewport top, the whole block was welded in place and
+          the visitor was looking at a full-bleed, already-cropped background
+          while the RSVP above was still leaving. That is the "background gets
+          stuck too early, before I have entered the finale" report.
+
+          The finale now participates in normal document flow like every other
+          chapter: it scrolls up from below, its background is just a background,
+          and it cannot pin anything. Nothing traps the scroll. */}
+      <div className="relative h-[100dvh] w-full overflow-hidden bg-[#04070f]">
         {/* ACT 1 — the approved palace still. This layer never unmounts, so the
-            background can never go black or be replaced. */}
+            background can never go black or be replaced.
+
+            It stays `object-cover` on purpose: it is the FILL. Whatever letterbox
+            the filmed frame needs above and below is painted with this same
+            palace, so the extra space reads as depth rather than as blank bars. */}
         <picture>
           <source srcSet={STILL} type="image/webp" />
           <img
@@ -264,17 +310,28 @@ export default function FinaleSection() {
           />
         </picture>
 
-        {/* ACT 2 — the varmala exchange and the fireworks. Muted, inline, ONCE. */}
+        {/* ACT 2 — the varmala exchange and the fireworks. Muted, inline, ONCE.
+
+            `object-contain`, NOT cover.
+
+            The approved clip is 1112x834 — 4:3. The stage is 16:9 on a desktop
+            and 9:19.5 on a phone, so `object-cover` was scaling the frame until
+            it filled, then throwing away everything outside the box: on a
+            desktop it cut the top and bottom, and on a phone it cut both sides
+            away entirely. The bright blue fireworks and the lit lower palace —
+            the whole point of the shot — were outside the crop. The frame is now
+            shown complete at every aspect ratio, letterboxed against the palace
+            covering. It is never stretched, never zoomed, never cropped. */}
         <video
           ref={videoRef}
-          className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-[900ms] ease-out ${
+          className={`absolute inset-0 h-full w-full object-contain transition-opacity duration-[900ms] ease-out ${
             showingFilm && phase !== 'reveal' ? 'opacity-100' : 'opacity-0'
           }`}
           src={FILM}
           poster={FILM_POSTER}
           muted
           playsInline
-          preload="metadata"
+          preload="auto"
           disablePictureInPicture
         />
 
@@ -290,51 +347,45 @@ export default function FinaleSection() {
 
         <GoldMotes />
 
-        {/* ACT 3 — the invitation scroll. It rises INTO the foreground while the
-            celebration keeps running behind it. */}
+        {/* ACT 3 — THE INVITATION, as the couple supplied it.
+
+            This is their 720x1280 film, played exactly as delivered. It carries
+            its own unroll, so there is not one line of clip-path, scaleY or
+            synthetic glint on top of it — the picture IS the animation.
+
+            `object-contain` and a capped box, so the portrait sheet keeps its
+            true proportions: the whole invitation, rollers included, always in
+            frame, never stretched, never cropped, never redrawn.
+
+            The wrapper performs only the cinematic entrance the brief asks for
+            (rise + slight settle + fade). It is `pointer-events-none` so the
+            foreground never intercepts a scroll gesture. */}
         <div
           className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center"
           style={{
-            opacity: scrollIn ? 1 : 0,
-            transform: `translate3d(0, ${scrollIn ? 0 : 9}%, 0) scale(${scrollIn ? 1 : 0.9})`,
-            transition: reduce ? 'none' : `opacity ${RISE_MS}ms ease-out, transform ${RISE_MS + 260}ms ${ease}`,
+            opacity: showRoll ? 1 : 0,
+            transform: `translate3d(0, ${showRoll ? 0 : 4}%, 0) scale(${showRoll ? 1 : 0.97})`,
+            transition: reduce
+              ? 'none'
+              : `opacity ${RISE_MS}ms ease-out, transform ${RISE_MS + 200}ms ${ease}`,
             willChange: 'transform, opacity',
           }}
         >
-          <div
-            className="relative"
+          <video
+            ref={rollRef}
+            className="h-auto w-auto max-w-[94vw] object-contain"
             style={{
-              /* Capped so the card never has to be magnified: at 760px tall the
-                 rendered width is ~497px against 515 native, i.e. never upscaled
-                 on a desktop and comfortably downscaled on a phone. */
-              height: `min(86dvh, calc(92vw * ${ART_RATIO}), 760px)`,
-              aspectRatio: `${ART_W} / ${ART_H}`,
+              height: 'min(88dvh, 900px)',
+              filter: 'drop-shadow(0 26px 54px rgba(0,0,0,0.70))',
             }}
-          >
-            {/* THE CARD. No clip-path, no scaleY, no travelling "leading edge".
-
-                The supplied artwork already carries its own carved gold rollers
-                top and bottom, so a clip-based unroll literally cut those
-                rollers in half and then dragged a synthetic glint across them —
-                which is the "very bad cut" the user saw. The sheet now simply
-                rises and settles as one piece, and the shadow is a drop-shadow
-                on the artwork's OWN alpha, so the matte edge reads as the
-                thickness of a physical card instead of a rectangular box. */}
-            <picture className="block h-full w-full">
-              <source srcSet={SCROLL_ART_WEBP} type="image/webp" />
-              <img
-                src={SCROLL_ART}
-                alt=""
-                aria-hidden="true"
-                className="h-full w-full object-contain"
-                style={{
-                  filter:
-                    'drop-shadow(0 22px 46px rgba(0,0,0,0.66)) drop-shadow(0 1px 0 rgba(212,175,55,0.30))',
-                }}
-                decoding="async"
-              />
-            </picture>
-          </div>
+            src={ROLL}
+            poster={ROLL_POSTER}
+            muted
+            playsInline
+            preload="auto"
+            disablePictureInPicture
+            aria-label="The wedding invitation, unrolling"
+          />
         </div>
 
         {/* The printed invitation, for assistive technology. The same stages

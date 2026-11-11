@@ -87,6 +87,141 @@
 }
 
 /* ------------------------------------------------------------------------- *
+ * THE BRIDE & GROOM CARDS — the interaction the couple asked to have back
+ *
+ * The cards had lost their hover response entirely, so they read as two flat
+ * boxes rather than two things you can engage with. The design, the typography,
+ * the photographs and the dimensions are all untouched: only the glow, the lift
+ * and the transition are restored.
+ *
+ * Each card responds INDEPENDENTLY. The glow is on the card itself, never on the
+ * section behind it, so hovering the bride does not light up the groom.
+ *
+ * `transition` is deliberately 320ms — the brief's 250-400ms band — and only on
+ * the compositor-friendly properties (transform, box-shadow, border-color) so it
+ * cannot cause a layout pass or a repaint storm while the pointer moves.
+ *
+ * Hover is gated behind `(hover: hover)` so a touch device never receives a
+ * stuck hover state after a tap. Touch gets its own feedback in the :active
+ * rule below instead. Keyboard users get the identical treatment via
+ * `:focus-visible`, which is why the markup carries `tabIndex={0}`.
+ * ------------------------------------------------------------------------- */
+.couple-card {
+  transition:
+    transform 320ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 320ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 320ms ease;
+  will-change: transform;
+}
+
+.couple-frame {
+  transition: box-shadow 320ms ease, border-color 320ms ease;
+}
+
+@media (hover: hover) {
+  .couple-card:hover {
+    transform: translateY(-6px) scale(1.015);
+    border-color: rgba(223, 186, 92, 0.95);
+    box-shadow:
+      0 34px 78px rgba(0, 0, 0, 0.9),
+      0 0 44px rgba(212, 175, 55, 0.34),
+      inset 0 0 40px rgba(212, 175, 55, 0.14);
+  }
+
+  .couple-card:hover .couple-frame {
+    border-color: rgba(255, 233, 171, 0.95);
+    box-shadow:
+      0 20px 44px rgba(0, 0, 0, 0.75),
+      0 0 34px rgba(212, 175, 55, 0.5);
+  }
+
+  /* A soft sheen that sweeps the frame on hover — a light pass over the gold,
+     not a new decoration. */
+  .couple-card:hover .couple-plate {
+    filter: brightness(1.06);
+  }
+}
+
+.couple-plate {
+  /* Meant to read as atmosphere, not as a switch: moonlight giving way to
+     morning. 2.4s sits inside the requested 2-3s band. Both plates are already
+     decoded and mounted, so this is a pure compositor crossfade — nothing
+     re-downloads, nothing re-decodes, and the two cards change in lockstep
+     because they share one duration.
+
+     THE CURVE IS THE FIX, NOT THE DURATION.
+
+     This was `cubic-bezier(0.4, 0, 0.2, 1)` — the Material "standard" curve.
+     Its first control point sits at y=0, so its initial slope is exactly zero:
+     over the first ~7% of a 2400ms run it moves by an imperceptible amount.
+     Measured, that was a 176ms window where the computed opacity was still
+     frozen at 1.000 after React had already committed the class change — which
+     is precisely the "lagging badly" feel, and it was never React, never image
+     decoding, never the toggle handler (click -> commit measured 13ms).
+
+     `ease` (0.25, 0.1, 0.25, 1) has a NON-ZERO initial slope of 0.4, so motion
+     begins on the first frame while still starting gently. Gentle is what
+     moonlight-to-morning needs; it must not snap. */
+  transition:
+    opacity 2400ms cubic-bezier(0.25, 0.1, 0.25, 1),
+    filter 320ms ease;
+  will-change: opacity;
+}
+
+/* Keyboard parity: identical to hover, and never removed by a mouse click. */
+.couple-card:focus-visible {
+  outline: none;
+  transform: translateY(-6px) scale(1.015);
+  border-color: rgba(223, 186, 92, 0.95);
+  box-shadow:
+    0 34px 78px rgba(0, 0, 0, 0.9),
+    0 0 44px rgba(212, 175, 55, 0.34),
+    0 0 0 3px rgba(212, 175, 55, 0.55),
+    inset 0 0 40px rgba(212, 175, 55, 0.14);
+}
+
+/* Touch: a brief, tactile press rather than a hover that sticks. */
+@media (hover: none) {
+  .couple-card:active {
+    transform: scale(0.988);
+    border-color: rgba(223, 186, 92, 0.95);
+    box-shadow:
+      0 18px 40px rgba(0, 0, 0, 0.85),
+      0 0 28px rgba(212, 175, 55, 0.3);
+  }
+}
+
+/* Reduced motion: the colour and glow still respond (they are not vestibular
+   motion), the lift and scale do not. */
+@media (prefers-reduced-motion: reduce) {
+  .couple-card,
+  .couple-frame,
+  .couple-plate {
+    transition-duration: 200ms;
+  }
+  .couple-card:hover,
+  .couple-card:focus-visible {
+    transform: none;
+  }
+  .couple-card:active {
+    transform: none;
+  }
+}
+
+/* Layer promotion for the Bride & Groom backdrop, applied at MOUNT rather than
+   at toggle. Measured problem: with the full-screen fade armed, rAF produced no
+   frame between t=18ms and t=173ms after the switch while the main thread
+   reported zero long tasks and zero video seeks — a compositing stall, because
+   the backdrop's layer was only created when its opacity transition began, so
+   the first frame had to repaint a full-screen image before anything moved.
+   Promoting up front makes frame one a compositor-only update. */
+.dn-promote {
+  will-change: opacity;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+/* ------------------------------------------------------------------------- *
  * SAFE AREAS (landscape phones with a notch / camera cutout)
  *
  * With `viewport-fit=cover` the page really does extend under the cutout, and

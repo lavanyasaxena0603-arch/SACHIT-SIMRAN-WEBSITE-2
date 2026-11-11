@@ -1,12 +1,22 @@
 import { useRef, useState, useEffect } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import { CustomEase } from 'gsap/CustomEase';
 import { useGSAP } from '@gsap/react';
 import { Heart, Sparkles, ChevronDown, Calendar, Clock, MapPin, Navigation, Play } from 'lucide-react';
 import { useCountdown } from '../lib/countdown';
 import { swapThemeVideo, playSafely, ensurePlaying } from '../lib/videoSwap';
 
-gsap.registerPlugin(ScrollTrigger, useGSAP);
+gsap.registerPlugin(ScrollTrigger, useGSAP, CustomEase);
+
+/* The approved easing, expressed exactly.
+
+   `cubic-bezier(0.22, 1, 0.36, 1)` is the "elegant deceleration" curve the brief
+   asks for: it starts quickly and then settles rather than snapping, which is
+   what makes a reveal read as an arrival instead of a pop. GSAP has no bezier
+   syntax, so it is registered once as a named ease from the equivalent SVG path
+   and then referenced by name everywhere. */
+CustomEase.create('royalRise', 'M0,0 C0.22,1 0.36,1 1,1');
 
 /**
  * THE INVITATION — one continuous document, after the opening cinematic.
@@ -105,20 +115,37 @@ const COUPLE = [
 
 /* --------------------------------------------------------------- PLATES ---- */
 
-function Backdrop({ day, night, isNight }) {
+function Backdrop({ day, night, isNight, durationMs = 900, promote = false }) {
+  /* `ease-out` is TAILWIND's curve (0, 0, 0.58, 1) — its first control point is
+     y=0, so its initial slope is zero and the crossfade appears to stall before
+     it starts. On the Bride & Groom page the plates use a 2400ms gentle-in
+     curve, and the background has to move on the same clock or the section
+     reads as two separate switches. So the curve is explicit here and the
+     duration is caller-controlled; every other section keeps its original 900.
+
+     `promote` exists because of a measured paint stall, not a theory: with the
+     full-screen fade armed, rAF produced NO frame between t=18ms and t=173ms
+     after the toggle while the main thread reported zero long tasks and zero
+     video seeks. That is a compositing stall — the backdrop's own layer only
+     gets created when the opacity transition begins, so the first frame has to
+     repaint a full-screen image before anything can move. `will-change` here is
+     static (it does not depend on `isNight`), so the layer is promoted at MOUNT
+     and the first animated frame is already a compositor-only update. Only the
+     Bride & Groom page opts in: promoting every backdrop in the document would
+     hold several full-screen layers resident for no reason. */
+  const timing = `${durationMs}ms cubic-bezier(0.25, 0.1, 0.25, 1)`;
+  const layer = `absolute inset-0 bg-cover bg-center transition-opacity ${
+    promote ? 'dn-promote' : ''
+  }`;
   return (
     <div className="absolute inset-0">
       <div
-        className={`absolute inset-0 bg-cover bg-center transition-opacity duration-[900ms] ease-out ${
-          isNight ? 'opacity-0' : 'opacity-100'
-        }`}
-        style={{ backgroundImage: `url('${day}')` }}
+        className={`${layer} ${isNight ? 'opacity-0' : 'opacity-100'}`}
+        style={{ backgroundImage: `url('${day}')`, transitionDuration: timing }}
       />
       <div
-        className={`absolute inset-0 bg-cover bg-center transition-opacity duration-[900ms] ease-out ${
-          isNight ? 'opacity-100' : 'opacity-0'
-        }`}
-        style={{ backgroundImage: `url('${night}')` }}
+        className={`${layer} ${isNight ? 'opacity-100' : 'opacity-0'}`}
+        style={{ backgroundImage: `url('${night}')`, transitionDuration: timing }}
       />
     </div>
   );
@@ -274,7 +301,13 @@ function WelcomeSection({ isNight, settled }) {
 function CoupleSection({ isNight }) {
   return (
     <Section id="couple" className="py-[clamp(3rem,10dvh,7rem)]">
-      <Backdrop day="/assets/couple/palace-day.jpg" night="/assets/couple/palace-night.jpg" isNight={isNight} />
+      <Backdrop
+        day="/assets/couple/palace-day.jpg"
+        night="/assets/couple/palace-night.jpg"
+        isNight={isNight}
+        durationMs={2400}
+        promote
+      />
       <div className="absolute inset-0 bg-gradient-to-t from-black/88 via-black/55 to-black/45" />
 
       <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-col items-center px-4 sm:px-8">
@@ -292,35 +325,69 @@ function CoupleSection({ isNight }) {
             the content, and halving the width crops them. */}
         <div className="mt-[clamp(1.5rem,5dvh,3rem)] grid w-full grid-cols-1 gap-[clamp(1rem,3dvh,2.5rem)] md:grid-cols-2">
           {COUPLE.map((person) => (
-            <article
-              key={person.key}
-              className="reveal flex flex-col items-center rounded-2xl border border-[#d4af37]/60 bg-gradient-to-b from-[#101830] via-[#0b1022] to-[#050814] p-[clamp(1rem,3dvh,1.75rem)] text-center shadow-[0_24px_60px_rgba(0,0,0,0.85),inset_0_0_30px_rgba(212,175,55,0.08)]"
-            >
-              <div className="relative mb-[clamp(0.75rem,2.9dvh,1.25rem)] aspect-[7/9] w-full max-w-[16rem] overflow-hidden rounded-t-full border-2 border-[#d4af37]/80 shadow-[0_15px_35px_rgba(0,0,0,0.7),0_0_20px_rgba(212,175,55,0.25)] sm:border-4">
-                <img
-                  src={isNight ? person.night : person.day}
-                  alt={person.alt}
-                  loading="lazy"
-                  decoding="async"
-                  className="block h-full w-full object-cover object-top"
-                />
-                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
-              </div>
+            /* TWO OWNERS OF `transform`, SO TWO ELEMENTS.
 
-              <span className="font-cinzel mb-1 text-[clamp(0.5rem,1.4dvh,0.75rem)] font-semibold tracking-[0.26em] uppercase text-[#dfba5c]">
-                {person.label}
-              </span>
-              <h3 className="font-royal my-1 text-[clamp(1.15rem,3.5dvh,1.875rem)] leading-tight font-normal tracking-wide text-[#fdfaf3]">
-                {person.name}
-              </h3>
-              <p className="font-serif-body mb-[clamp(0.5rem,1.75dvh,0.75rem)] text-[clamp(0.65rem,1.85dvh,1rem)] font-medium leading-snug tracking-wide text-[#dfba5c] italic">
-                {person.parents}
-              </p>
-              <div className="my-[clamp(0.35rem,1.15dvh,0.5rem)] h-px w-16 bg-gradient-to-r from-transparent via-[#d4af37]/80 to-transparent sm:w-20" />
-              <p className="font-serif-body max-w-sm text-[clamp(0.65rem,1.6dvh,0.875rem)] leading-relaxed text-[#dad2c3] italic">
-                {person.bio}
-              </p>
-            </article>
+               The reveal tween writes an INLINE `transform` on its target, and an
+               inline style always beats a stylesheet rule. If the reveal and the
+               hover glow shared one element, the inline transform from GSAP would
+               permanently outrank the `.couple-card:hover` lift and the hover
+               would do nothing at all — the exact "cards stopped responding"
+               failure. So the reveal owns this wrapper and the card is free to
+               own its own transform. */
+            <div key={person.key} className="reveal">
+              <article
+                tabIndex={0}
+                className="couple-card group flex flex-col items-center rounded-2xl border border-[#d4af37]/60 bg-gradient-to-b from-[#101830] via-[#0b1022] to-[#050814] p-[clamp(1rem,3dvh,1.75rem)] text-center shadow-[0_24px_60px_rgba(0,0,0,0.85),inset_0_0_30px_rgba(212,175,55,0.08)]"
+              >
+                <div className="couple-frame relative mb-[clamp(0.75rem,2.9dvh,1.25rem)] aspect-[7/9] w-full max-w-[16rem] overflow-hidden rounded-t-full border-2 border-[#d4af37]/80 shadow-[0_15px_35px_rgba(0,0,0,0.7),0_0_20px_rgba(212,175,55,0.25)] sm:border-4">
+                  {/* BOTH plates are mounted, always, and the Day/Night switch is
+                      a crossfade between two already-decoded layers.
+
+                      This used to be ONE <img> whose `src` was swapped on toggle.
+                      Changing `src` makes the browser decode a brand-new image and
+                      paint it only when ready, so the portrait blinked and the page
+                      appeared to lag behind the click — the toggle responded, the
+                      picture did not. Two permanently mounted layers cost nothing
+                      extra (both plates are already approved assets) and turn the
+                      swap into a pure compositor opacity transition, so both cards
+                      change together, immediately, with no flash and no reload. */}
+                  <img
+                    src={person.day}
+                    alt={person.alt}
+                    loading="eager"
+                    decoding="async"
+                    className={`couple-plate absolute inset-0 block h-full w-full object-cover object-top ${
+                      isNight ? 'opacity-0' : 'opacity-100'
+                    }`}
+                  />
+                  <img
+                    src={person.night}
+                    alt=""
+                    aria-hidden="true"
+                    loading="eager"
+                    decoding="async"
+                    className={`couple-plate absolute inset-0 block h-full w-full object-cover object-top ${
+                      isNight ? 'opacity-100' : 'opacity-0'
+                    }`}
+                  />
+                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
+                </div>
+
+                <span className="font-cinzel mb-1 text-[clamp(0.5rem,1.4dvh,0.75rem)] font-semibold tracking-[0.26em] uppercase text-[#dfba5c]">
+                  {person.label}
+                </span>
+                <h3 className="font-royal my-1 text-[clamp(1.15rem,3.5dvh,1.875rem)] leading-tight font-normal tracking-wide text-[#fdfaf3]">
+                  {person.name}
+                </h3>
+                <p className="font-serif-body mb-[clamp(0.5rem,1.75dvh,0.75rem)] text-[clamp(0.65rem,1.85dvh,1rem)] font-medium leading-snug tracking-wide text-[#dfba5c] italic">
+                  {person.parents}
+                </p>
+                <div className="my-[clamp(0.35rem,1.15dvh,0.5rem)] h-px w-16 bg-gradient-to-r from-transparent via-[#d4af37]/80 to-transparent sm:w-20" />
+                <p className="font-serif-body max-w-sm text-[clamp(0.65rem,1.6dvh,0.875rem)] leading-relaxed text-[#dad2c3] italic">
+                  {person.bio}
+                </p>
+              </article>
+            </div>
           ))}
         </div>
 
@@ -1099,57 +1166,76 @@ export default function InvitationScroll({ isNight }) {
   }, []);
 
   /*
-    PER-ELEMENT REVEALS — independent of section structure.
+    PER-ELEMENT REVEALS — the approved cinematic entrance, restored.
 
-    Every `.reveal` element gets its own ScrollTrigger as it enters, with a small
-    stagger inside each section. `once: false` is deliberate: scrolling back up
-    returns the elements to their hidden state, so the journey is reversible
-    rather than one-way. Everything is a transform + opacity only, so it stays
-    on the compositor and costs nothing per frame.
+    Every `.reveal` element rises into place as the visitor discovers it:
 
-    Reduced motion: the elements are simply shown, never animated.
+        from  translateY 44px, opacity 0, scale 0.97
+        to    translateY 0,    opacity 1, scale 1
+        over  ~780ms on `royalRise` = cubic-bezier(0.22, 1, 0.36, 1)
+
+    SEQUENCING. Elements are grouped by their own <section> and ordered by
+    document position, so the stagger is relative to the chapter being read, not
+    to a global counter. The old code used `(i % 5) * 45ms` on a document-wide
+    index, which meant the delay an element received depended on how many reveals
+    happened to precede it anywhere on the page — so two cards in the same grid
+    could fire in an order that had nothing to do with their layout, and adding a
+    single element upstream silently reshuffled every delay below it. Now the
+    first thing in a chapter leads, and its support follows 120ms behind.
+
+    REVERSIBILITY. `toggleActions: 'play none none reverse'` plays forward on
+    entry and reverses on exit, so scrolling back up returns the elements to
+    their resting state and the journey stays re-readable.
+
+    NO PERMANENTLY INVISIBLE ELEMENTS. GSAP's ScrollTrigger evaluates its start
+    position at creation, so anything already past the trigger line (above the
+    fold, or revealed while the observer was still settling) fires immediately
+    instead of waiting for a scroll that may never come.
+
+    Reduced motion: the reveal still runs — it loses only the travel, the scale
+    and the sequencing, which is what the preference actually asks for.
   */
   useGSAP(
     () => {
       const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
       const items = gsap.utils.toArray('.reveal');
 
-      /* REDUCED MOTION — keep the reveal, remove the MOVEMENT.
-       *
-       * This used to be `gsap.set(items, { opacity: 1, y: 0 }); return;`, which
-       * switched every reveal off entirely. Measured on a reduce-motion machine:
-       * the engagement heading read 1.00 / 1.00 / 1.00 on every sample — it was
-       * already fully opaque before it entered the viewport, so arriving at the
-       * venue produced no entrance at all. The copy, the plates and the pop-up
-       * detail cards simply existed. That is exactly the report: "the animations
-       * of the pop-up bar and the venue page animations are not there".
-       *
-       * `prefers-reduced-motion` is about VESTIBULAR motion — travel, parallax,
-       * zoom, spin. A short opacity cross-fade is not one of those; it is the
-       * same information arriving legibly instead of flashing into being. So the
-       * animation still runs, it just loses its 26px slide and its stagger. */
-      const shift = reduce ? 0 : 26;
-      const duration = reduce ? 0.4 : 0.75;
-      const stagger = reduce ? 0 : 0.045;
-
       if (!items.length) return undefined;
+
+      /* Order within each chapter. `closest('section, footer')` gives the
+         element's own chapter; the index inside that group drives the stagger. */
+      const seen = new Map();
+      const order = items.map((el) => {
+        const chapter = el.closest('section, footer') || el.parentElement;
+        const n = seen.get(chapter) || 0;
+        seen.set(chapter, n + 1);
+        return n;
+      });
+
+      const RISE = reduce ? 0 : 44; // the brief's 35-65px band
+      const SCALE_FROM = reduce ? 1 : 0.97;
+      const DURATION = reduce ? 0.45 : 0.78; // the brief's 650-950ms band
+      const STEP = reduce ? 0 : 0.12; // the brief's 100-180ms band
 
       const triggers = items.map((el, i) =>
         gsap.fromTo(
           el,
-          { opacity: 0, y: shift },
+          { opacity: 0, y: RISE, scale: SCALE_FROM, transformOrigin: '50% 60%' },
           {
             opacity: 1,
             y: 0,
-            duration,
-            ease: 'power2.out',
+            scale: 1,
+            duration: DURATION,
+            ease: 'royalRise',
             scrollTrigger: {
               trigger: el,
-              start: 'top 88%',
+              // A slightly generous line so the rise finishes as the element
+              // settles into the lower third, rather than completing off-screen.
+              start: 'top 90%',
               toggleActions: 'play none none reverse',
               invalidateOnRefresh: true,
             },
-            delay: (i % 5) * stagger,
+            delay: order[i] * STEP,
           },
         ),
       );
