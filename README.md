@@ -165,7 +165,7 @@ invitation-card seal.
 │       ├── scene2/   courtyard films + their real final frames
 │       ├── scene3/   welcome backdrops (day/night)
 │       ├── couple/   bride/groom portraits + palace backdrops
-│       └── scene5/   scroll-story-scrub.mp4 + poster
+│       └── scene5/   story day/night films + their posters
 └── src/
     ├── main.jsx
     ├── App.jsx                 # stage machine, isNight, isMuted
@@ -194,15 +194,27 @@ Kept in `src/index.css` and used throughout:
 
 - `public/assets/scene2/court-end-{day,night}.jpg` are the courtyard films' true final
   frames. Regenerating either film means regenerating these, or the hand-off seam shows.
-- `public/assets/scene5/scroll-story-scrub.mp4` contains the quote's typewriter reveal,
-  the elephants' sway and the falling petals **baked into the footage**. The component
-  renders no text of its own — the film is the single source of that animation, and it
-  must be seeked by the timeline or the frame looks empty.
-- `public/assets/scene5/story-night.jpg` is the dedicated night plate for the story act.
-  Night mode crossfades this image over the film; the film is never unmounted, so the
-  scroll timeline and the playhead are never touched.
-- `story-poster.jpg` is frame 0 of that film. Frame 0 intentionally has the elephants and
-  the gold flourish but no text and no petals.
+- The story act is **two real films**, not one film plus a still:
+
+  | File | Theme | Source |
+  |---|---|---|
+  | `public/assets/scene5/story-day-scrub.mp4`  | Day   | `gemini_generated_video_2cd13983.mp4` |
+  | `public/assets/scene5/story-night-scrub.mp4` | Night | `gemini_generated_video_334d89d8.mp4` |
+
+  Both are 1280×720, 24 fps, 240 frames, 10.0 s, and **all-intra** (240/240 keyframes).
+  All-intra is not cosmetic: the timeline seek-scrubs `currentTime` on every scroll frame,
+  and a normal GOP encode can only seek to the nearest keyframe, which stutters. Regenerate
+  with `-g 1 -keyint_min 1 -sc_threshold 0` or the scroll will feel sticky.
+- Both films contain the quote's typewriter reveal, the elephants' sway and the falling
+  petals **baked into the footage**. `StoryAct` renders no text of its own — the film is the
+  single source of that animation, and it must be seeked by the timeline or the frame looks
+  empty. Frame 0 intentionally has the courtyard and flourish but no text.
+- **One playhead, two films.** Both videos stay mounted from first paint and the same
+  scroll timeline seeks both to the same normalised time. Day/Night is therefore a pure
+  opacity crossfade on the video elements — the scroll position, the playhead and the drawn
+  quote cannot move when the theme is switched.
+- `story-poster.jpg` / `story-night-poster.jpg` are frame 0 of their respective films — the
+  still shown for the instant before the first seek lands.
 
 ---
 
