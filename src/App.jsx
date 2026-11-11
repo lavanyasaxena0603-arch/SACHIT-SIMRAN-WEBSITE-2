@@ -107,24 +107,32 @@ export default function App() {
       {/* PHASE B — normal document flow, so it owns the scrollbar. Rendered
           ABOVE the frozen entrance while it dissolves in.
 
-          The thread and header live OUTSIDE the fading wrapper so they do not
-          fade with it: they are chrome for the whole invitation journey, and
-          keeping them siblings of the fade avoids a second opacity channel
-          fighting the ScrollTrigger writes inside.
+          THE HEADER MUST LIVE INSIDE THE FADE. Both the entrance header and
+          this one are pixel-identical (same offset, monogram width, type sizes
+          and wording) so the header reads as persisting across the boundary.
+          But the entrance is still mounted and fully opaque during the
+          hand-off, so a header rendered OUTSIDE this wrapper sits at opacity 1
+          on top of an identical opaque header — two solid copies of the same
+          glyphs, which anti-aliasing renders as visibly doubled text.
 
-          `InvitationScroll` is one continuous stack of flush `<section>`
-          siblings. That is the entire mechanism of physical upward movement —
-          there is deliberately no sticky stage, no pinned track and no tweened
-          scene position left in phase B. */}
+          Inside the wrapper the incoming copy ramps 0 -> 1 over the outgoing
+          one. Compositing a colour over the SAME colour at any alpha returns
+          that colour, so every intermediate frame is identical to the first and
+          the hand-off is invisible: no flicker, no duplicate, no jump, no
+          disappearance and no overlap.
+
+          The thread stays outside: at scroll 0 it is already fully retracted
+          (dash offset complete, pendant at opacity 0), so it cannot paint over
+          the entrance even for one frame. */}
       {stage !== 'entrance' && (
         <>
           <GoldenThread trackId="invitation-scroll" />
-          <SectionHeader />
           <div
             className={`relative z-[55] transition-opacity duration-[900ms] ease-linear ${
               revealed ? 'opacity-100' : 'opacity-0'
             }`}
           >
+            <SectionHeader />
             <InvitationScroll isNight={isNight} />
           </div>
         </>

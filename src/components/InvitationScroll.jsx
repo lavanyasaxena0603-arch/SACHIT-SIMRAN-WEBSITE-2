@@ -208,10 +208,20 @@ function WelcomeSection({ isNight, settled }) {
         {/* Width AND height, not height alone.
             The name is set on two deliberate lines. Sized only by `dvh` it went
             to 67px on a 360px phone, where "Sachit Srivastava" cannot fit on one
-            line and broke into four — which pushed the sub-line and the scroll
-            cue together. `min(8.4dvh, 9.5vw)` keeps the two-line lockup intact at
-            every width while still scaling with the height on tall screens. */}
-        <h1 className="reveal font-script bg-gradient-to-r from-[#ebd6a7] via-[#fff5df] to-[#ebd6a7] bg-clip-text text-[clamp(1.65rem,min(8.4dvh,9.5vw),5.5rem)] leading-[1.12] font-normal text-transparent drop-shadow-[0_4px_24px_rgba(0,0,0,0.95)]">
+            line and broke into four, pushing the sub-line and the scroll cue
+            together.
+
+            `min(8.4dvh, 13vw)`: the approved 8.4dvh still governs on tablet and
+            desktop, where the width term never binds — so the approved desktop
+            appearance is untouched. The width term only takes over on narrow
+            phones, where 8.4dvh is far too wide for the line.
+
+            13vw is chosen to sit comfortably UNDER the two-line limit for this
+            face (measured at ~16.2% of the inner width), not at it: 360px gives
+            ~47px with ~15px of breathing room on each side, clearing the golden
+            thread rail. A slightly smaller elegant name beats a cramped maximum
+            one, and the two-line lockup can never break. */}
+        <h1 className="reveal font-script bg-gradient-to-r from-[#ebd6a7] via-[#fff5df] to-[#ebd6a7] bg-clip-text text-[clamp(1.65rem,min(8.4dvh,13vw),5.5rem)] leading-[1.12] font-normal text-transparent drop-shadow-[0_4px_24px_rgba(0,0,0,0.95)]">
           Simran Saxena &amp;
           <br />
           Sachit Srivastava

@@ -30,7 +30,7 @@ export default function SectionHeader() {
           Royal Wedding Celebration
         </p>
         <h2 className="font-royal text-[11px] leading-tight font-normal tracking-[0.14em] uppercase text-[#fbf7ee] drop-shadow sm:text-sm">
-          Simran &amp; Sachit
+          Simran <span className="text-[#dfba5c]">&amp;</span> Sachit
         </h2>
       </div>
     </header>
