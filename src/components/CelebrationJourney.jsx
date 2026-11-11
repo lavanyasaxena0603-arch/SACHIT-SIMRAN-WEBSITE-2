@@ -92,43 +92,47 @@ function CountdownDial() {
   ];
 
   return (
-    <div className="relative aspect-square w-full">
+    // `container-type: inline-size` + cqw units: every piece of type here is
+    // sized as a fraction of THE DIAL, not of the viewport. That is the only way
+    // the same dial stays legible at 176px on a short laptop screen and at 270px
+    // on a desktop without the four numbers overflowing the circle.
+    <div className="relative aspect-square w-full [container-type:inline-size]">
       {/* Ornamental rings. Decorative only — the numbers sit on top. */}
       <div className="absolute inset-0 rounded-full border border-[#d4af37]/60 shadow-[0_0_50px_rgba(212,175,55,0.3),inset_0_0_36px_rgba(212,175,55,0.12)]" />
       <div className="absolute inset-[4.5%] rounded-full border border-[#d4af37]/25" />
       <div className="absolute inset-[9%] rounded-full bg-[radial-gradient(circle_at_50%_36%,rgba(12,21,38,0.86)_0%,rgba(4,7,17,0.95)_100%)] backdrop-blur-[2px]" />
 
       {/* Four diamond studs at the cardinal points of the outer ring. */}
-      <span className="absolute top-0 left-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rotate-45 bg-[#dfba5c]/85" aria-hidden="true" />
-      <span className="absolute bottom-0 left-1/2 h-2 w-2 -translate-x-1/2 translate-y-1/2 rotate-45 bg-[#dfba5c]/85" aria-hidden="true" />
-      <span className="absolute top-1/2 left-0 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rotate-45 bg-[#dfba5c]/85" aria-hidden="true" />
-      <span className="absolute top-1/2 right-0 h-2 w-2 -translate-y-1/2 translate-x-1/2 rotate-45 bg-[#dfba5c]/85" aria-hidden="true" />
+      <span className="absolute top-0 left-1/2 h-[2cqw] w-[2cqw] -translate-x-1/2 -translate-y-1/2 rotate-45 bg-[#dfba5c]/85" aria-hidden="true" />
+      <span className="absolute bottom-0 left-1/2 h-[2cqw] w-[2cqw] -translate-x-1/2 translate-y-1/2 rotate-45 bg-[#dfba5c]/85" aria-hidden="true" />
+      <span className="absolute top-1/2 left-0 h-[2cqw] w-[2cqw] -translate-x-1/2 -translate-y-1/2 rotate-45 bg-[#dfba5c]/85" aria-hidden="true" />
+      <span className="absolute top-1/2 right-0 h-[2cqw] w-[2cqw] -translate-y-1/2 translate-x-1/2 rotate-45 bg-[#dfba5c]/85" aria-hidden="true" />
 
       <div
-        className="absolute inset-0 flex flex-col items-center justify-center px-[9%] text-center"
+        className="absolute inset-0 flex flex-col items-center justify-center px-[8%] text-center"
         role="timer"
         aria-label={`${label}. ${days} days, ${hours} hours, ${mins} minutes until ${target}.`}
       >
-        <p className="font-cinzel text-[clamp(0.38rem,1.55vmin,0.6rem)] leading-tight uppercase tracking-[0.24em] text-[#dfba5c] drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)]">
+        <p className="font-cinzel text-[3.6cqw] leading-tight uppercase tracking-[0.2em] text-[#dfba5c] drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)]">
           {label}
         </p>
 
-        <div className="mt-[clamp(0.2rem,1vmin,0.5rem)] flex items-start justify-center gap-[clamp(0.15rem,1.1vmin,0.55rem)]">
+        <div className="mt-[2.6cqw] flex items-start justify-center gap-[2.4cqw]">
           {units.map((u) => (
             <div key={u.key} className="flex flex-col items-center">
-              <span className="font-royal text-[clamp(0.95rem,4.6vmin,1.9rem)] leading-none font-bold text-[#fff9e6] tabular-nums drop-shadow-[0_2px_10px_rgba(255,215,120,0.45)]">
+              <span className="font-royal text-[15cqw] leading-none font-bold text-[#fff9e6] tabular-nums drop-shadow-[0_2px_10px_rgba(255,215,120,0.45)]">
                 {String(u.value).padStart(2, '0')}
               </span>
-              <span className="font-sans-clean mt-[0.15rem] text-[clamp(0.3rem,1.05vmin,0.46rem)] uppercase tracking-[0.16em] text-[#d8b878]">
+              <span className="font-sans-clean mt-[0.8cqw] text-[3.9cqw] uppercase tracking-[0.14em] text-[#d8b878]">
                 {u.label}
               </span>
             </div>
           ))}
         </div>
 
-        <div className="mt-[clamp(0.22rem,1.2vmin,0.6rem)] h-px w-3/5 bg-gradient-to-r from-transparent via-[#d4af37]/65 to-transparent" />
+        <div className="mt-[3cqw] h-px w-3/5 bg-gradient-to-r from-transparent via-[#d4af37]/65 to-transparent" />
 
-        <p className="font-sans-clean mt-[clamp(0.2rem,0.9vmin,0.45rem)] text-[clamp(0.33rem,1.05vmin,0.5rem)] uppercase tracking-[0.18em] text-[#f7d58a]/85">
+        <p className="font-sans-clean mt-[2.6cqw] text-[3.9cqw] uppercase tracking-[0.16em] text-[#f7d58a]/85">
           {target}
         </p>
       </div>
@@ -139,13 +143,20 @@ function CountdownDial() {
 function CountdownAct({ isNight, videoRef }) {
   return (
     <div className="cd-layer absolute inset-0 z-10">
-      {/* The story film's true last frame — identical pixels to where the
-          previous track stops, so the hand-off reads as one shot. */}
+      {/* The story film's true last frame, sitting UNDER the film. It is only
+          ever visible for the instant before the video paints its first frame,
+          and it means the stage is never bare. */}
       <Backdrop day={SEAM_DAY} night={SEAM_NIGHT} isNight={isNight} />
 
+      {/*
+        THE FILM IS THE BACKGROUND — always on, never a poster.
+        It is opaque from the first frame (no fade-in), so the moment this act
+        arrives the scene is already moving. It loops, and the timeline below
+        pauses/resumes it as the visitor leaves and returns.
+      */}
       <video
         ref={videoRef}
-        className="cd-video absolute inset-0 h-full w-full object-cover opacity-0"
+        className="cd-video absolute inset-0 h-full w-full object-cover"
         src={COUNTDOWN_FILM}
         poster={COUNTDOWN_POSTER}
         loop
@@ -158,7 +169,7 @@ function CountdownAct({ isNight, videoRef }) {
       />
 
       <div
-        className="cd-scrim absolute inset-0 opacity-0"
+        className="cd-scrim absolute inset-0"
         style={{
           background: isNight
             ? 'radial-gradient(circle at 50% 40%, rgba(4,7,17,0.28) 10%, rgba(4,7,17,0.70) 62%, rgba(2,4,10,0.93) 100%)'
@@ -167,37 +178,49 @@ function CountdownAct({ isNight, videoRef }) {
       />
 
       {/*
-        The supplied film already carries an empty ornate medallion near the top
-        of frame. Its interior is only ~11% of the frame width — too small for a
-        legible four-unit timer — so the live dial is deliberately larger and
-        centred over it: it REPLACES the baked-in medallion instead of competing
-        with it.
+        THE DIAL — placed in STAGE coordinates, not on the film.
 
-        The wrapper below reproduces object-cover geometry exactly (a box of the
-        film's own 16:9 aspect, scaled to cover), so the dial keeps its position
-        over that medallion at every viewport, including phones where the film
-        is cropped hard at the sides.
+        The film's own medallion is a fixed feature of the frame, but because the
+        film is object-cover its on-screen position depends on the viewport: on a
+        short, wide window the cover box grows taller than the screen and the
+        medallion's centre rides up past the top edge. Anchoring the dial to that
+        centre is what pushed half of it off-screen.
+
+        So the dial is positioned and sized against the VIEWPORT instead:
+          - centre at 27dvh, clamped into [6.5rem, 16rem] so it always clears the
+            gold frame at the top
+          - width from 21dvh / 34vw so it can never overflow, clamped to
+            [9rem, 22rem] so it stays legible on a phone and doesn't balloon on
+            a desktop
+        The film's gold ring stays behind it as a frame — the dial reads as the
+        jewel inside the medallion rather than a cut-off overlay.
+      */}
+      {/*
+        THE DIAL — placed in STAGE coordinates, not on the film.
+
+        Sizing it as a fraction of the film's cover box was the bug: that box is
+        max(100vw, 100dvh*16/9), so on a 390px phone it is 1500px wide and 27%
+        of it is a 405px dial — wider than the screen — and on a short, wide
+        window the box is taller than the viewport, so a dial centred at 24.5%
+        of it had its top edge 45px ABOVE the screen. That is the clipping.
+
+        So the dial is sized and placed against the viewport instead:
+          --cd-w  at most 44dvh and 82vw, so it always fits both ways
+          top     its centre, clamped so top edge >= 3.5rem (clears the gold
+                  frame) and bottom edge <= 4rem above the floor
+        The film's own gold ring stays behind it, so the dial reads as the jewel
+        inside the medallion rather than an overlay sitting on top of it.
       */}
       <div className="pointer-events-none absolute inset-0 z-20 overflow-hidden">
         <div
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
+          className="cd-dial absolute left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-0"
           style={{
-            width: 'max(100%, calc(100dvh * 16 / 9))',
-            height: 'max(100%, calc(100vw * 9 / 16))',
+            '--cd-w': 'clamp(9rem, min(44dvh, 82vw), 24rem)',
+            top: 'clamp(calc(var(--cd-w) / 2 + 3.5rem), 24.5dvh, calc(100dvh - var(--cd-w) / 2 - 4rem))',
+            width: 'var(--cd-w)',
           }}
         >
-          {/* The centring transform lives on THIS wrapper, never on .cd-dial.
-              GSAP animates `.cd-dial` with `y`/`scale`, which it applies as an
-              inline `transform`; that would wipe out the -translate-x/y-1/2
-              utilities and drop the dial half its own size off the medallion. */}
-          <div
-            className="absolute top-[24.5%] left-1/2 -translate-x-1/2 -translate-y-1/2"
-            style={{ width: 'clamp(12.5rem, 27%, 26rem)' }}
-          >
-            <div className="cd-dial opacity-0">
-              <CountdownDial />
-            </div>
-          </div>
+          <CountdownDial />
         </div>
       </div>
     </div>
@@ -240,7 +263,7 @@ function MapButton({ href, children }) {
 
 function EngagementAct({ isNight }) {
   return (
-    <div className="st-layer absolute inset-0 z-20 opacity-0">
+    <div className="st-layer absolute inset-0 z-20">
       <Backdrop day={STERLING_DAY} night={STERLING_NIGHT} isNight={isNight} />
 
       {/* Heavy at the base so the card always reads; light at the top so the
@@ -312,7 +335,7 @@ function EngagementAct({ isNight }) {
  */
 function WeddingAct({ videoRef }) {
   return (
-    <div className="ru-layer absolute inset-0 z-30 opacity-0">
+    <div className="ru-layer absolute inset-0 z-30">
       <div
         className="absolute inset-0 scale-110 bg-cover bg-center opacity-40 blur-2xl"
         style={{ backgroundImage: `url('${WEDDING_POSTER}')` }}
@@ -374,6 +397,7 @@ export default function CelebrationJourney({ isNight }) {
   const countdownVideoRef = useRef(null);
   const weddingVideoRef = useRef(null);
   const weddingArmedRef = useRef(false);
+  const countdownPlayingRef = useRef(true);
 
   // Respect the reduced-motion setting for the one thing that moves on its own:
   // the looping background film. Everything else here is scroll-driven.
@@ -386,9 +410,11 @@ export default function CelebrationJourney({ isNight }) {
     if (reduce) {
       v.pause();
       v.currentTime = 0;
+      countdownPlayingRef.current = false;
     } else {
       const p = v.play();
       if (p && typeof p.catch === 'function') p.catch(() => {});
+      countdownPlayingRef.current = true;
     }
   }, []);
 
@@ -400,16 +426,37 @@ export default function CelebrationJourney({ isNight }) {
         typeof window !== 'undefined' &&
         window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-      // Reduced motion: the slides become plain dissolves, no travel.
+      // Reduced motion: the pages cross-fade into place instead of travelling.
       const drift = reduceMotion ? 0 : 1;
       const weddingEl = weddingVideoRef.current;
+      const countdownEl = countdownVideoRef.current;
+
+      /*
+        THE COUNTDOWN FILM NEVER FREEZES ON ITS OWN.
+        It plays whenever act A is the page you can actually see, and pauses
+        only once act B has swiped over it — so scrolling back up finds it still
+        running rather than a dead poster. The two thresholds differ so a
+        one-pixel jitter at the boundary cannot stutter it.
+      */
+      const driveCountdown = (progress) => {
+        if (!countdownEl || reduceMotion) return;
+        const shouldPlay = progress < 0.42;
+        if (shouldPlay && !countdownPlayingRef.current) {
+          countdownPlayingRef.current = true;
+          const p = countdownEl.play();
+          if (p && typeof p.catch === 'function') p.catch(() => {});
+        } else if (!shouldPlay && progress > 0.46 && countdownPlayingRef.current) {
+          countdownPlayingRef.current = false;
+          countdownEl.pause();
+        }
+      };
 
       // The wedding film plays itself once its act is on screen. The 0.75/0.66
       // thresholds are deliberately different (hysteresis) so a one-pixel
       // jitter at the boundary cannot restart the clip.
       const driveWedding = (progress) => {
         if (!weddingEl) return;
-        if (progress > 0.75 && !weddingArmedRef.current) {
+        if (progress > 0.74 && !weddingArmedRef.current) {
           weddingArmedRef.current = true;
           try {
             weddingEl.currentTime = 0;
@@ -436,13 +483,16 @@ export default function CelebrationJourney({ isNight }) {
           end: 'bottom bottom',
           scrub: reduceMotion ? true : 0.6,
           invalidateOnRefresh: true,
-          onUpdate: (self) => driveWedding(self.progress),
+          onUpdate: (self) => {
+            driveCountdown(self.progress);
+            driveWedding(self.progress);
+          },
         },
       });
 
-      // ACT A — the celebration film dissolves in over the story film's last frame.
-      tl.to('.cd-video', { opacity: 1, duration: 0.13 }, 0.05);
-      tl.to('.cd-scrim', { opacity: 1, duration: 0.13 }, 0.05);
+      // ACT A — no fade-in at all. The film is already playing as its page
+      // arrives, so what you meet is motion, never a still. Only the timer
+      // settles into place.
       tl.fromTo(
         '.cd-dial',
         { opacity: 0, y: 24 * drift, scale: drift ? 0.95 : 1 },
@@ -451,11 +501,14 @@ export default function CelebrationJourney({ isNight }) {
       );
       tl.to('.cd-hint', { opacity: 0, duration: 0.05 }, 0.1);
 
-      // ACT B — rises from below while act A drifts up.
-      tl.to('.cd-layer', { yPercent: -12 * drift, duration: 0.17 }, 0.45);
+      // ACT B — SWIPES up over act A. No opacity on the layer: the incoming
+      // page is fully opaque and physically slides up, so the transition reads
+      // as a swipe, not a dissolve. (Text still fades in afterwards, which is
+      // what keeps it from appearing to be pasted on mid-slide.)
+      tl.to('.cd-layer', { yPercent: -100 * drift, duration: 0.17 }, 0.45);
       tl.fromTo(
         '.st-layer',
-        { yPercent: 100 * drift, opacity: 0 },
+        { yPercent: 100 * drift, opacity: reduceMotion ? 0 : 1 },
         { yPercent: 0, opacity: 1, duration: 0.17, ease: 'power2.out' },
         0.45,
       );
@@ -463,14 +516,14 @@ export default function CelebrationJourney({ isNight }) {
         '.st-content',
         { opacity: 0, y: 40 * drift },
         { opacity: 1, y: 0, duration: 0.1, ease: 'power2.out' },
-        0.51,
+        0.5,
       );
 
-      // ACT C — same hand-off again.
-      tl.to('.st-layer', { yPercent: -12 * drift, duration: 0.17 }, 0.71);
+      // ACT C — same swipe again.
+      tl.to('.st-layer', { yPercent: -100 * drift, duration: 0.17 }, 0.71);
       tl.fromTo(
         '.ru-layer',
-        { yPercent: 100 * drift, opacity: 0 },
+        { yPercent: 100 * drift, opacity: reduceMotion ? 0 : 1 },
         { yPercent: 0, opacity: 1, duration: 0.17, ease: 'power2.out' },
         0.71,
       );
@@ -478,8 +531,20 @@ export default function CelebrationJourney({ isNight }) {
         '.ru-content',
         { opacity: 0, y: 40 * drift },
         { opacity: 1, y: 0, duration: 0.11, ease: 'power2.out' },
-        0.77,
+        0.76,
       );
+
+      /*
+        PAD THE TIMELINE TO EXACTLY 1.
+
+        ScrollTrigger maps scroll progress 0..1 across the timeline's WHOLE
+        duration, and a timeline's duration is set by its last tween (0.88 here).
+        Without this pad, a tween placed at 0.71 would fire at scroll 0.81 and
+        `driveWedding(0.75)` would start the film while its page was still
+        entirely off-screen. With the pad, every position above IS the scroll
+        progress, and the final 12% becomes a short hold on the wedding page.
+      */
+      tl.to({}, { duration: 0.12 });
     },
     { scope: trackRef },
   );
