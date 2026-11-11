@@ -1,21 +1,40 @@
 import React, { useState, useEffect } from 'react';
 import EntranceJourney from './components/EntranceJourney';
-import ScrollStory from './components/ScrollStory';
-import CelebrationJourney from './components/CelebrationJourney';
+import InvitationScroll from './components/InvitationScroll';
+import GoldenThread from './components/GoldenThread';
+import SectionHeader from './components/SectionHeader';
 import GlobalControls from './components/GlobalControls';
 import AmbientMusic from './components/AmbientMusic';
 
 /**
- * TWO MOMENTS, ONE JOURNEY
+ * TWO PHASES, ONE DOCUMENT
  *
- *   1  EntranceJourney — invitation card, palace gate film, courtyard film.
- *                         All four videos live in one component, so nothing
- *                         unmounts between the gate and the courtyard.
+ *   PHASE A — EntranceJourney (cinematic, visitor has no scrollbar)
+ *             invitation card, palace gate film, courtyard film. All four videos
+ *             live in one component, so nothing unmounts between gate and
+ *             courtyard. Preserved exactly as approved.
  *
- *   2  ScrollStory     — the welcome, the couple and our story as THREE ACTS of
- *                         one scrolling stage. No "next screen", no button: the
- *                         visitor just keeps scrolling and one scene dissolves
- *                         into the next, the way a portfolio page reads.
+ *   PHASE B — InvitationScroll (the invitation proper)
+ *             welcome, bride & groom, our story, countdown, engagement, wedding,
+ *             closing — SEVEN REAL `<section>` ELEMENTS IN NORMAL DOCUMENT FLOW.
+ *
+ * WHY THIS IS A REWRITE OF THE PHASE-B ARCHITECTURE AND NOT A TWEAK
+ * -----------------------------------------------------------------
+ * The previous phase B was two tall tracks (ScrollStory 480vh,
+ * CelebrationJourney 360vh), each holding ONE `sticky top-0 h-[100dvh]` stage
+ * with every scene stacked inside it as `absolute inset-0`. A layer inside a
+ * sticky stage is already pinned to the viewport, so it has nowhere to go: the
+ * only transition it can perform is an opacity crossfade. Scene "arrival" was a
+ * tween position, never a document position — which is exactly why the journey
+ * felt like a slideshow and could not move physically no matter how the tweens
+ * were tuned.
+ *
+ * Real sections in flow fix it at the source: the browser scrolls the document,
+ * so the outgoing section physically leaves through the top and the incoming one
+ * physically rises from below. Sections are flush siblings, so no gap, spacer or
+ * black separator can open between them. Reversal is native — scroll up and the
+ * browser plays the same movement backwards. GSAP is then free to do what it is
+ * good at: small, independent, reversible per-element reveals.
  *
  * THE HAND-OFF (this is what kills the black moment)
  * --------------------------------------------------
@@ -46,9 +65,9 @@ export default function App() {
   // <AmbientMusic /> waits for the first tap/click/keypress and starts then.
   const [isMuted, setIsMuted] = useState(false);
 
-  // 'entrance' -> only the entrance
-  // 'handoff'  -> entrance frozen underneath, scroll stage fading in above it
-  // 'story'    -> only the scroll stage
+  // 'entrance' -> only the cinematic entrance (Phase A)
+  // 'handoff'  -> entrance frozen underneath, invitation document fading in above it
+  // 'story'    -> only the invitation document (Phase B)
   const [stage, setStage] = useState('entrance');
   const [revealed, setRevealed] = useState(false);
 
@@ -85,24 +104,30 @@ export default function App() {
         onToggleMute={toggleMute}
       />
 
-      {/* Normal document flow (it must own the scrollbar), but stacked ABOVE
-          the frozen entrance while it dissolves in.
+      {/* PHASE B — normal document flow, so it owns the scrollbar. Rendered
+          ABOVE the frozen entrance while it dissolves in.
 
-          ScrollStory and CelebrationJourney are intentionally CONTIGUOUS
-          SIBLINGS here: two sticky 100dvh stages back to back in one flow. The
-          browser hands off between them natively — the story stage unpins and
-          scrolls up while the celebration stage is already sitting directly
-          beneath it — so there is no seam, no gap and no script involved. Split
-          them into separate wrappers and the native hand-off breaks. */}
+          The thread and header live OUTSIDE the fading wrapper so they do not
+          fade with it: they are chrome for the whole invitation journey, and
+          keeping them siblings of the fade avoids a second opacity channel
+          fighting the ScrollTrigger writes inside.
+
+          `InvitationScroll` is one continuous stack of flush `<section>`
+          siblings. That is the entire mechanism of physical upward movement —
+          there is deliberately no sticky stage, no pinned track and no tweened
+          scene position left in phase B. */}
       {stage !== 'entrance' && (
-        <div
-          className={`relative z-[55] transition-opacity duration-[900ms] ease-linear ${
-            revealed ? 'opacity-100' : 'opacity-0'
-          }`}
-        >
-          <ScrollStory isNight={isNight} />
-          <CelebrationJourney isNight={isNight} />
-        </div>
+        <>
+          <GoldenThread trackId="invitation-scroll" />
+          <SectionHeader />
+          <div
+            className={`relative z-[55] transition-opacity duration-[900ms] ease-linear ${
+              revealed ? 'opacity-100' : 'opacity-0'
+            }`}
+          >
+            <InvitationScroll isNight={isNight} />
+          </div>
+        </>
       )}
 
       {/* Stays fully opaque on its last frame until the scroll stage has
