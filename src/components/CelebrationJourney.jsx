@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useState } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useGSAP } from '@gsap/react';
@@ -140,7 +140,26 @@ function CountdownDial() {
   );
 }
 
-function CountdownAct({ isNight, videoRef }) {
+/**
+ * ACT A — the film, then the countdown inside its medallion.
+ *
+ * The brief for this act is specific and worth stating plainly, because the
+ * first two attempts got it wrong:
+ *
+ *   1. The film plays ONCE. It must not loop — looping made the scene repeat
+ *      itself while the visitor was still reading it.
+ *   2. It STOPS on its final frame and holds there, as a picture.
+ *   3. THEN the countdown appears, zooming into the medallion that the final
+ *      frame leaves empty. The dial belongs INSIDE that medallion, not floating
+ *      somewhere on top of the picture.
+ *
+ * `loop` is therefore absent, and `autoPlay` is too: this component mounts when
+ * the story track hands over, which is seconds before anyone scrolls this far.
+ * An autoplaying film would have finished long before it was ever looked at.
+ * The timeline starts it when the act actually comes on screen (see
+ * driveCountdown), and `onEnded` is what reveals the dial.
+ */
+function CountdownAct({ isNight, videoRef, ready, onEnded }) {
   return (
     <div className="cd-layer absolute inset-0 z-10">
       {/* The story film's true last frame, sitting UNDER the film. It is only
@@ -148,23 +167,16 @@ function CountdownAct({ isNight, videoRef }) {
           and it means the stage is never bare. */}
       <Backdrop day={SEAM_DAY} night={SEAM_NIGHT} isNight={isNight} />
 
-      {/*
-        THE FILM IS THE BACKGROUND — always on, never a poster.
-        It is opaque from the first frame (no fade-in), so the moment this act
-        arrives the scene is already moving. It loops, and the timeline below
-        pauses/resumes it as the visitor leaves and returns.
-      */}
       <video
         ref={videoRef}
         className="cd-video absolute inset-0 h-full w-full object-cover"
         src={COUNTDOWN_FILM}
         poster={COUNTDOWN_POSTER}
-        loop
         muted
         playsInline
         preload="auto"
-        autoPlay
         disablePictureInPicture
+        onEnded={onEnded}
         aria-hidden="true"
       />
 
@@ -178,49 +190,47 @@ function CountdownAct({ isNight, videoRef }) {
       />
 
       {/*
-        THE DIAL — placed in STAGE coordinates, not on the film.
+        THE DIAL LIVES IN THE MEDALLION.
 
-        The film's own medallion is a fixed feature of the frame, but because the
-        film is object-cover its on-screen position depends on the viewport: on a
-        short, wide window the cover box grows taller than the screen and the
-        medallion's centre rides up past the top edge. Anchoring the dial to that
-        centre is what pushed half of it off-screen.
+        These numbers are measured off the film's own final frame, not guessed:
+        that frame's dark medallion interior sits at 49.80% across and 35.21%
+        down, with a diameter of 17.03% of the frame width. Placing the dial at
+        those exact fractions puts it in the ring that the film itself draws.
 
-        So the dial is positioned and sized against the VIEWPORT instead:
-          - centre at 27dvh, clamped into [6.5rem, 16rem] so it always clears the
-            gold frame at the top
-          - width from 21dvh / 34vw so it can never overflow, clamped to
-            [9rem, 22rem] so it stays legible on a phone and doesn't balloon on
-            a desktop
-        The film's gold ring stays behind it as a frame — the dial reads as the
-        jewel inside the medallion rather than a cut-off overlay.
-      */}
-      {/*
-        THE DIAL — placed in STAGE coordinates, not on the film.
+        The wrapper reproduces object-cover geometry — a 16:9 box scaled up to
+        cover the viewport — so "49.8% of the film" stays 49.8% of the FILM at
+        any window size, including phones where the sides are cropped hard.
+        Because the medallion is inside the frame, a dial this size can never be
+        clipped by the screen edge.
 
-        Sizing it as a fraction of the film's cover box was the bug: that box is
-        max(100vw, 100dvh*16/9), so on a 390px phone it is 1500px wide and 27%
-        of it is a 405px dial — wider than the screen — and on a short, wide
-        window the box is taller than the viewport, so a dial centred at 24.5%
-        of it had its top edge 45px ABOVE the screen. That is the clipping.
-
-        So the dial is sized and placed against the viewport instead:
-          --cd-w  at most 44dvh and 82vw, so it always fits both ways
-          top     its centre, clamped so top edge >= 3.5rem (clears the gold
-                  frame) and bottom edge <= 4rem above the floor
-        The film's own gold ring stays behind it, so the dial reads as the jewel
-        inside the medallion rather than an overlay sitting on top of it.
+        The zoom: the dial starts at 52% and grows to full size over 900ms once
+        the film ends, so it reads as arriving out of the medallion.
       */}
       <div className="pointer-events-none absolute inset-0 z-20 overflow-hidden">
         <div
-          className="cd-dial absolute left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-0"
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
           style={{
-            '--cd-w': 'clamp(9rem, min(44dvh, 82vw), 24rem)',
-            top: 'clamp(calc(var(--cd-w) / 2 + 3.5rem), 24.5dvh, calc(100dvh - var(--cd-w) / 2 - 4rem))',
-            width: 'var(--cd-w)',
+            width: 'max(100%, calc(100dvh * 16 / 9))',
+            height: 'max(100%, calc(100vw * 9 / 16))',
           }}
         >
-          <CountdownDial />
+          <div
+            className="absolute"
+            style={{
+              left: '49.8%',
+              top: '35.21%',
+              width: '17.03%',
+              transform: 'translate(-50%, -50%)',
+            }}
+          >
+            <div
+              className={`cd-dial origin-center transition-all duration-[900ms] ease-out ${
+                ready ? 'scale-100 opacity-100' : 'scale-[0.52] opacity-0'
+              }`}
+            >
+              <CountdownDial />
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -399,40 +409,40 @@ export default function CelebrationJourney({ isNight }) {
   const weddingArmedRef = useRef(false);
 
   /*
-    START THE COUNTDOWN FILM, AND KEEP TRYING UNTIL IT RUNS.
+    ACT A IS A ONE-SHOT.
 
-    A single play() on mount is not enough. The element may still be loading, or
-    the browser may defer the start until it has a decoded frame, and a refused
-    attempt is silent. So we retry on the events that mean "there is video now"
-    — loadeddata, canplay, playing — and also once when the tab becomes visible.
+    Two flags, both refs so they survive re-renders and are readable from
+    inside the scrubbed timeline:
 
-    Nothing here cancels playback; every path is an attempt to start it.
+      countdownStartedRef — the film has been started once. It is never started
+                            again, so scrolling away and back finds it held on
+                            its final frame, exactly as the brief asks, instead
+                            of replaying from the top.
+
+      countdownReadyRef   — the dial should be visible. Set when the film
+                            actually ends, and as a safety net if the visitor
+                            scrolls past act A before the clip finishes.
   */
-  useEffect(() => {
-    const v = countdownVideoRef.current;
-    if (!v) return undefined;
+  const [countdownReady, setCountdownReady] = useState(false);
+  const countdownStartedRef = useRef(false);
+  const countdownReadyRef = useRef(false);
 
-    const tryPlay = () => {
-      if (!v.paused) return;
-      const p = v.play();
-      if (p && typeof p.catch === 'function') p.catch(() => {});
-    };
+  const revealDial = () => {
+    if (countdownReadyRef.current) return;
+    countdownReadyRef.current = true;
+    setCountdownReady(true);
+  };
 
-    tryPlay();
+  /*
+    Deliberately NO play() on mount.
 
-    const events = ['loadeddata', 'canplay', 'canplaythrough', 'playing', 'stalled', 'suspend'];
-    for (const name of events) v.addEventListener(name, tryPlay);
-
-    const onVisible = () => {
-      if (!document.hidden) tryPlay();
-    };
-    document.addEventListener('visibilitychange', onVisible);
-
-    return () => {
-      for (const name of events) v.removeEventListener(name, tryPlay);
-      document.removeEventListener('visibilitychange', onVisible);
-    };
-  }, []);
+    This component mounts at the entrance hand-over, which is a whole scroll
+    track before act A is ever looked at. Starting the film here meant it had
+    long since finished — and with the old `loop` attribute still on the
+    element, it had also restarted — by the time the visitor arrived. That is
+    the "playing twice" the brief describes. The film is started by the
+    timeline, when the act is actually on screen.
+  */
 
   useGSAP(
     () => {
@@ -448,27 +458,32 @@ export default function CelebrationJourney({ isNight }) {
       const countdownEl = countdownVideoRef.current;
 
       /*
-        THE COUNTDOWN FILM PLAYS whenever act A is the page you can see, and
-        pauses only once act B has swiped over it — so scrolling back up finds
-        it still running rather than a dead frame.
+        ACT A PLAYS EXACTLY ONCE — then holds its last frame as a picture.
 
-        The state is read from the element itself (`paused`), never cached in a
-        ref. An earlier version kept a "currently playing" flag and set it to
-        true optimistically, before play() had actually resolved; when the
-        browser refused that first attempt the flag still said "playing", so the
-        retry never ran and the film sat on its poster forever. Reading
-        `el.paused` means every scroll tick retries until it genuinely starts.
+        Not "plays while it is on screen": ONCE, ever. The film is started the
+        first time act A comes into view, runs to its end, and stays there.
+        `onEnded` then zooms the countdown into the medallion that final frame
+        leaves empty.
+
+        `countdownStartedRef` is what makes it a one-shot. There is no loop
+        attribute on the element and nothing here restarts it, so scrolling
+        away and back finds the film held on its final frame — which is the
+        picture the dial lives in.
       */
       const driveCountdown = (progress) => {
         if (!countdownEl) return;
-        if (progress < 0.42) {
-          if (countdownEl.paused) {
-            const p = countdownEl.play();
-            if (p && typeof p.catch === 'function') p.catch(() => {});
-          }
-        } else if (progress > 0.46 && !countdownEl.paused) {
-          countdownEl.pause();
+
+        // Arrived at the act: start the one-shot.
+        if (progress < 0.30 && !countdownStartedRef.current) {
+          countdownStartedRef.current = true;
+          countdownEl.currentTime = 0;
+          const p = countdownEl.play();
+          if (p && typeof p.catch === 'function') p.catch(() => {});
         }
+
+        // Scrolled past the act before the clip finished: the visitor never saw
+        // the ending, so put the dial in now rather than leave an empty ring.
+        if (progress > 0.40) revealDial();
       };
 
       // The wedding film plays itself once its act is on screen. The 0.75/0.66
@@ -510,15 +525,10 @@ export default function CelebrationJourney({ isNight }) {
         },
       });
 
-      // ACT A — no fade-in at all. The film is already playing as its page
-      // arrives, so what you meet is motion, never a still. Only the timer
-      // settles into place.
-      tl.fromTo(
-        '.cd-dial',
-        { opacity: 0, y: 24 * drift, scale: drift ? 0.95 : 1 },
-        { opacity: 1, y: 0, scale: 1, duration: 0.14, ease: 'power2.out' },
-        0.1,
-      );
+      // ACT A — the dial is NOT animated here. Its zoom out of the medallion is
+      // driven by `ready` (a CSS transition on .cd-dial), because it has to fire
+      // when the FILM ENDS — an event, not a scroll position. Animating it from
+      // this scrubbed timeline would have fought that transition.
       tl.to('.cd-hint', { opacity: 0, duration: 0.05 }, 0.1);
 
       // ACT B — SWIPES up over act A. No opacity on the layer: the incoming
@@ -577,7 +587,12 @@ export default function CelebrationJourney({ isNight }) {
       style={{ height: '360vh' }}
     >
       <div className="sticky top-0 h-[100dvh] w-full overflow-hidden text-[#f7f2e7] select-none font-serif-body">
-        <CountdownAct isNight={isNight} videoRef={countdownVideoRef} />
+        <CountdownAct
+          isNight={isNight}
+          videoRef={countdownVideoRef}
+          ready={countdownReady}
+          onEnded={revealDial}
+        />
         <EngagementAct isNight={isNight} />
         <WeddingAct videoRef={weddingVideoRef} />
 
