@@ -64,6 +64,8 @@ const ART_RATIO = ART_H / ART_W;
    the picture — it cut the sheet in half and dragged a gold "leading edge"
    across already-drawn rollers. The reveal is now a rise + settle. */
 const RISE_MS = 1150;
+/* Frame the film reaches if it never reports `ended` — the varmala climax. */
+const HOLD_AT = 3.58 / 8.041667;
 
 /* The printed invitation, in the order it is typeset on the parchment. The
    artwork is a fully typeset sheet, so this copy is what assistive technology
@@ -116,7 +118,7 @@ export default function FinaleSection() {
   const sectionRef = useRef(null);
   const videoRef = useRef(null);
 
-  // 'reveal' -> 'motion' -> 'enter' -> 'unroll' -> 'hold'
+  // 'reveal' -> 'motion' -> 'enter' -> 'hold'
   //
   // Both of these are read during render from the media query rather than set
   // from an effect: the preference cannot change the decision the chapter makes
@@ -149,18 +151,27 @@ export default function FinaleSection() {
       s.timers.push(setTimeout(fn, ms));
     };
 
-    // The scroll entrance + unroll, once, and never auto-advancing past `hold`.
+    // The card's entrance, once, and never auto-advancing past `hold`.
     const openScroll = () => {
       if (s.done) return;
       s.done = true;
       clearTimers();
       setNeedsTap(false);
       setPhase('enter');
-      later(() => setPhase('unroll'), ENTER_MS);
-      later(() => setPhase('hold'), ENTER_MS + UNROLL_MS);
+      later(() => setPhase('hold'), RISE_MS);
     };
 
-    if (prefersReduce) {
+    // `reduce` is the RESOLVED BOOLEAN, snapshotted in state.
+    //
+    // This previously read `if (prefersReduce)`, testing the FUNCTION instead of
+    // calling it. A function object is always truthy, so the reduced-motion
+    // branch ran for every visitor: the film was parked at HOLD_AT and paused,
+    // `s.done` was set before the IntersectionObserver was ever created, and
+    // `phase` stayed at its initial 'reveal' forever. The result was exactly
+    // what the user reported — the celebration video never played and the
+    // invitation card never appeared — while the still and every static element
+    // looked fine, which is why isolated "does it exist" tests kept passing.
+    if (reduce) {
       // Nothing plays. The palace is already there and the invitation is already
       // open — the same information, without motion.
       if (video) {
@@ -224,7 +235,11 @@ export default function FinaleSection() {
         video.pause();
       }
     };
-  }, []);
+    // `reduce` is a useState snapshot taken once at mount, so it can never
+    // change and this effect can never re-run. Listing it is still correct: the
+    // branch below reads it, and omitting it would be a stale-closure bug the
+    // moment anyone made the preference live.
+  }, [reduce]);
 
   // A rotation re-measures the section; the phase machine itself does not restart.
   useEffect(() => {
@@ -232,9 +247,8 @@ export default function FinaleSection() {
     return () => cancelAnimationFrame(id);
   }, []);
 
-  const scrollIn = phase === 'enter' || phase === 'unroll' || phase === 'hold';
-  const unrolled = phase === 'unroll' || phase === 'hold';
-  const showingFilm = phase === 'motion' || phase === 'enter' || phase === 'unroll' || phase === 'hold';
+  const scrollIn = phase === 'enter' || phase === 'hold';
+  const showingFilm = phase === 'motion' || phase === 'enter' || phase === 'hold';
 
   const ease = 'cubic-bezier(.18,.78,.18,1)';
 
@@ -291,60 +305,43 @@ export default function FinaleSection() {
           style={{
             opacity: scrollIn ? 1 : 0,
             transform: `translate3d(0, ${scrollIn ? 0 : 9}%, 0) scale(${scrollIn ? 1 : 0.9})`,
-            transition: reduce ? 'none' : `opacity ${ENTER_MS}ms ease-out, transform ${ENTER_MS + 240}ms ${ease}`,
+            transition: reduce ? 'none' : `opacity ${RISE_MS}ms ease-out, transform ${RISE_MS + 260}ms ${ease}`,
             willChange: 'transform, opacity',
           }}
         >
           <div
-            className="relative max-h-[94dvh]"
+            className="relative"
             style={{
-              height: 'min(94dvh, calc(96vw * 1.4481))',
-              aspectRatio: '993 / 1438',
+              /* Capped so the card never has to be magnified: at 760px tall the
+                 rendered width is ~497px against 515 native, i.e. never upscaled
+                 on a desktop and comfortably downscaled on a phone. */
+              height: `min(86dvh, calc(92vw * ${ART_RATIO}), 760px)`,
+              aspectRatio: `${ART_W} / ${ART_H}`,
             }}
           >
-            {/* Physical unroll: the sheet is clipped from the bottom up, so the
-                top roller is already in view and the parchment extends downward
-                exactly as the printed sheet is ordered. */}
-            <div
-              className="relative h-full w-full"
-              style={{
-                clipPath: unrolled ? 'inset(0 0 0% 0)' : 'inset(0 0 100% 0)',
-                transform: unrolled ? 'scaleY(1)' : 'scaleY(0.982)',
-                transformOrigin: 'top center',
-                transition: reduce
-                  ? 'none'
-                  : `clip-path ${UNROLL_MS}ms ${ease}, transform ${UNROLL_MS}ms ${ease}`,
-                filter: 'drop-shadow(0 18px 40px rgba(0,0,0,0.62))',
-                willChange: 'clip-path, transform',
-              }}
-            >
-              <picture className="block h-full w-full">
-                <source srcSet={SCROLL_ART_WEBP} type="image/webp" />
-                <img
-                  src={SCROLL_ART}
-                  alt=""
-                  aria-hidden="true"
-                  className="h-full w-full object-contain"
-                  decoding="async"
-                />
-              </picture>
-            </div>
+            {/* THE CARD. No clip-path, no scaleY, no travelling "leading edge".
 
-            {/* The leading edge: a gold glint that travels down with the unroll,
-                standing in for the bottom roller. It is the only added ornament,
-                and it disappears the instant the sheet is open. */}
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute left-0 w-full"
-              style={{
-                top: unrolled ? '100%' : '0%',
-                opacity: phase === 'unroll' ? 1 : 0,
-                transition: reduce ? 'none' : `top ${UNROLL_MS}ms ${ease}, opacity 500ms linear`,
-              }}
-            >
-              <div className="h-[3px] w-full bg-gradient-to-r from-transparent via-[#f6dfa0] to-transparent shadow-[0_0_18px_rgba(212,175,55,0.9)]" />
-              <div className="mx-auto h-16 w-full bg-gradient-to-b from-[#04070f]/55 to-transparent" />
-            </div>
+                The supplied artwork already carries its own carved gold rollers
+                top and bottom, so a clip-based unroll literally cut those
+                rollers in half and then dragged a synthetic glint across them —
+                which is the "very bad cut" the user saw. The sheet now simply
+                rises and settles as one piece, and the shadow is a drop-shadow
+                on the artwork's OWN alpha, so the matte edge reads as the
+                thickness of a physical card instead of a rectangular box. */}
+            <picture className="block h-full w-full">
+              <source srcSet={SCROLL_ART_WEBP} type="image/webp" />
+              <img
+                src={SCROLL_ART}
+                alt=""
+                aria-hidden="true"
+                className="h-full w-full object-contain"
+                style={{
+                  filter:
+                    'drop-shadow(0 22px 46px rgba(0,0,0,0.66)) drop-shadow(0 1px 0 rgba(212,175,55,0.30))',
+                }}
+                decoding="async"
+              />
+            </picture>
           </div>
         </div>
 

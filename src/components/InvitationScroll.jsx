@@ -491,99 +491,43 @@ function StorySection({ isNight }) {
       return undefined;
     }
 
-    /* ---------------- the scroll hold ---------------- */
-    let touchY = 0;
+    /* ---------------- the hold is now purely presentational ----------------
 
-    const onWheel = (e) => {
-      if (!s.holding) return;
-      // Forward only. Backward scrolling is always allowed, so leaving the
-      // scene upward is never blocked.
-      if (e.deltaY > 0) e.preventDefault();
-    };
+       IT USED TO BLOCK THE PAGE, AND THAT WAS THE BUG.
 
-    const onTouchStart = (e) => {
-      touchY = e.touches[0] ? e.touches[0].clientY : 0;
-    };
+       This block used to preventDefault() every forward wheel/touch/key gesture
+       while the elephant film played, and a scroll listener snapped the document
+       back to the section's top with window.scrollTo() if it moved. To the
+       visitor that is a page which stops dead part-way through: forward scroll
+       does nothing at all, so the venue chapter and the three sections after it
+       can never be reached. Measured with a scroll walk, the document sat at
+       y=1870 for nine consecutive samples — it never advanced past the story
+       chapter.
 
-    const onTouchMove = (e) => {
-      if (!s.holding) return;
-      const t = e.touches[0];
-      if (!t) return;
-      // Finger travelling UP the screen = the page moving down = forward.
-      if (touchY - t.clientY > 0) e.preventDefault();
-    };
+       The brief for this chapter is explicit: the film plays through, the final
+       frame HOLDS, and the visitor continues when they scroll. Holding a frame
+       is a property of the <video> element (it does that by itself when it ends
+       and is never rewound), not something the page has to enforce by refusing
+       input. Nothing here may trap a gesture, snap the scroll position, or
+       introduce forced scrolling.
 
-    const onKeyDown = (e) => {
-      if (!s.holding) return;
-      if (e.key === 'ArrowDown' || e.key === 'PageDown' || e.key === ' ' || e.key === 'End') {
-        e.preventDefault();
-      }
-    };
+       So: no preventDefault, no scrollTo, no clamping. `holding` is kept ONLY so
+       the visible "Continue" affordance can be shown while the film runs; it
+       grants no control over scrolling whatsoever. */
 
-    const onScrollGuard = () => {
-      if (!s.holding) return;
-
-      const y = window.scrollY;
-
-      // A scroll WE caused (the clamp below, or the settle snap). Record it and
-      // decide nothing, or the clamp would read its own correction as the
-      // visitor moving and release the hold instantly.
-      if (s.clamping) {
-        s.clamping = false;
-        s.lastY = y;
-        return;
-      }
-
-      if (Date.now() < s.settleUntil) {
-        s.lastY = y;
-        return;
-      }
-
-      // Moving UP always wins. Reading is free to abandon the scene at any
-      // moment, and no gesture of ours may keep them in it.
-      if (y < s.lastY) {
-        s.lastY = y;
-        releaseHold();
-        return;
-      }
-
-      s.lastY = y;
-      if (y > s.pinY + 1) {
-        s.clamping = true;
-        window.scrollTo(0, s.pinY);
-      }
-    };
-
+    /* Presentational only. These toggle the little "Continue" affordance in the
+       markup; neither one registers a listener, calls preventDefault, or moves
+       the document. Scrolling is always the visitor's. */
     const releaseHold = () => {
       if (!s.holding) return;
       s.holding = false;
       setHolding(false);
-      window.removeEventListener('wheel', onWheel);
-      window.removeEventListener('touchstart', onTouchStart);
-      window.removeEventListener('touchmove', onTouchMove);
-      window.removeEventListener('keydown', onKeyDown);
-      window.removeEventListener('scroll', onScrollGuard);
     };
 
     const engageHold = () => {
       if (s.holding) return;
-
-      // The stage is exactly one viewport tall, so "pinned" means the section's
-      // top is at the viewport's top. Anything else is snapped into place, and
-      // the guard waits for that settle before it starts clamping.
-      s.pinY = Math.max(0, Math.round(section.getBoundingClientRect().top + window.scrollY));
-      s.settleUntil = Date.now() + 460;
-      if (Math.abs(window.scrollY - s.pinY) > 1) {
-        window.scrollTo({ top: s.pinY, left: 0, behavior: 'smooth' });
-      }
-
       s.holding = true;
       setHolding(true);
-      window.addEventListener('wheel', onWheel, { passive: false });
-      window.addEventListener('touchstart', onTouchStart, { passive: true });
-      window.addEventListener('touchmove', onTouchMove, { passive: false });
-      window.addEventListener('keydown', onKeyDown);
-      window.addEventListener('scroll', onScrollGuard, { passive: true });
     };
 
     /* ---------------- start / finish ---------------- */
