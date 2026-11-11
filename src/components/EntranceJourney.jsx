@@ -26,6 +26,22 @@ import Monogram from './Monogram';
 
 const DAY_IMAGE = '/assets/scene1/day-image.png';
 const NIGHT_IMAGE = '/assets/scene1/night-image.png';
+
+/* Responsive WebP ladders, derived LOCALLY from the approved PNG sources with
+   Lanczos resampling — every entry is at or below the native width, so nothing
+   here is an invented "HD" upscale. The PNG stays as the <img> fallback.
+
+   day   native 1024x682   -> 512 / 768 / 1024
+   night native 1537x1023  -> 512 / 768 / 1024 / 1537                        */
+const DAY_SRCSET =
+  '/assets/scene1/day-image-512.webp 512w, ' +
+  '/assets/scene1/day-image-768.webp 768w, ' +
+  '/assets/scene1/day-image-1024.webp 1024w';
+const NIGHT_SRCSET =
+  '/assets/scene1/night-image-512.webp 512w, ' +
+  '/assets/scene1/night-image-768.webp 768w, ' +
+  '/assets/scene1/night-image-1024.webp 1024w, ' +
+  '/assets/scene1/night-image-1537.webp 1537w';
 const DAY_GATE_VIDEO = '/assets/scene1/day-video.mp4';
 const NIGHT_GATE_VIDEO = '/assets/scene1/night-video.mp4';
 const DAY_COURT_VIDEO = '/assets/scene2/day-courtyard.mp4';
@@ -111,21 +127,35 @@ export default function EntranceJourney({ isNight, onComplete }) {
   return (
     <div className="relative w-full h-[100dvh] overflow-hidden bg-[#040711] select-none font-serif-body">
 
-      {/* ---------- STILLS (behind the card, before entering) ---------- */}
-      <img
-        src={DAY_IMAGE}
-        alt="Palace entrance at day"
-        className={`absolute inset-0 w-full h-full object-cover object-center transition-opacity duration-1000 ${
-          !entered && !isNight ? 'opacity-100 z-10' : 'opacity-0 z-0'
-        }`}
-      />
-      <img
-        src={NIGHT_IMAGE}
-        alt="Palace entrance at night"
-        className={`absolute inset-0 w-full h-full object-cover object-center transition-opacity duration-1000 ${
-          !entered && isNight ? 'opacity-100 z-10' : 'opacity-0 z-0'
-        }`}
-      />
+      {/* ---------- STILLS (behind the card, before entering) ----------
+          Real <picture> elements, not CSS backgrounds, so the browser picks the
+          smallest WebP that covers this viewport and can prioritise the day
+          plate (the default theme, and therefore the first paint). `sizes` is
+          100vw because both are full-bleed object-cover. The PNG remains the
+          <img src> fallback for any engine without WebP. */}
+      <picture className={`absolute inset-0 w-full h-full transition-opacity duration-1000 ${
+        !entered && !isNight ? 'opacity-100 z-10' : 'opacity-0 z-0'
+      }`}>
+        <source type="image/webp" srcSet={DAY_SRCSET} sizes="100vw" />
+        <img
+          src={DAY_IMAGE}
+          alt="Palace entrance at day"
+          fetchPriority="high"
+          decoding="async"
+          className="block w-full h-full object-cover object-center"
+        />
+      </picture>
+      <picture className={`absolute inset-0 w-full h-full transition-opacity duration-1000 ${
+        !entered && isNight ? 'opacity-100 z-10' : 'opacity-0 z-0'
+      }`}>
+        <source type="image/webp" srcSet={NIGHT_SRCSET} sizes="100vw" />
+        <img
+          src={NIGHT_IMAGE}
+          alt="Palace entrance at night"
+          decoding="async"
+          className="block w-full h-full object-cover object-center"
+        />
+      </picture>
 
       {/* ---------- GATE FILM (kept mounted; holds its last frame) ---------- */}
       <video

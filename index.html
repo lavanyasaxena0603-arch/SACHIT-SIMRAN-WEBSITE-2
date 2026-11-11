@@ -7,7 +7,22 @@
          values; without it a notched phone reports 0 and the header sits under
          the cutout once rotated to landscape. -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <title>Simran & Sachit — Royal Wedding Invitation</title>
+    <title>Simran &amp; Sachit — Royal Wedding Invitation</title>
+
+    <!-- LCP. The largest thing painted on first load is the day palace plate
+         behind the invitation card (it is full-bleed, so it is the LCP element
+         on every viewport). Preloading EXACTLY that one asset — with the same
+         `imagesrcset`/`imagesizes` the <picture> will use — lets the browser
+         start the fetch ~1 render earlier and, because the candidate list
+         matches, it does NOT download twice.
+
+         Nothing else is preloaded: the other three hero videos and every
+         below-the-fold plate stay on their normal lazy/preload="auto" paths, so
+         this does not compete with them for bandwidth. -->
+    <link rel="preload" as="image" type="image/webp"
+          imagesrcset="/assets/scene1/day-image-512.webp 512w, /assets/scene1/day-image-768.webp 768w, /assets/scene1/day-image-1024.webp 1024w"
+          imagesizes="100vw" fetchpriority="high" />
+
     <!-- Google Fonts for Royal Indian Wedding Theme -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

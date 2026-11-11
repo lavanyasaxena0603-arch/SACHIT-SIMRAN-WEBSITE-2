@@ -48,15 +48,25 @@ const STILL_FALLBACK = '/assets/finale/palace-still.png';
 const FILM = '/assets/finale/varmala-fireworks-night.mp4';
 const FILM_POSTER = '/assets/finale/varmala-poster.jpg';
 const SCROLL_ART = '/assets/finale/invitation-scroll.png';
+/* Lossless WebP of the SAME artwork (encoded locally from the PNG, method=6).
+   Verified bit-identical on every visible pixel — the only differing bytes sit
+   under fully transparent alpha-0 pixels, which cannot render. 3,209,014 B ->
+   2,212,878 B (−31.0%). The PNG stays as the <img> fallback. */
+const SCROLL_ART_WEBP = '/assets/finale/invitation-scroll.webp';
 
 /* The unroll is the one long beat, and its length is the brief's, not mine. */
 const ENTER_MS = 820; // parchment rises into the foreground
 const UNROLL_MS = 3400; // physical top-to-bottom unroll
 const HOLD_AT = 3.58 / 8.041667; // climax of the film, if it never reports `ended`
 
-/* The printed invitation, in the order the parchment reveals it. The artwork is
-   a fully typeset sheet, so this copy is what assistive technology reads while
-   the same words appear in gold on the parchment itself. */
+/* The printed invitation, in the order it is typeset on the parchment. The
+   artwork is a fully typeset sheet, so this copy is what assistive technology
+   reads while the same words appear in gold on the parchment itself. It is
+   `sr-only`, never drawn — so it duplicates the artwork for non-visual users,
+   not on screen.
+
+   Date and timings are NOT repeated here: they are carried once, by the two
+   closing paragraphs below, so a screen reader never hears them twice. */
 const STAGES = [
   { k: 'ganesh', sa: '॥ शुभ लाभ ॥', en: 'With the blessings of God, we cordially invite you and your family to the' },
   { k: 'heading', en: 'Wedding Ceremony' },
@@ -68,13 +78,7 @@ const STAGES = [
   { k: 'groom-family', en: 'Son of Smt. Roli Srivastava & Sh. Satyendra Srivastava' },
   { k: 'procession', en: 'The baraat procession — the palki, the elephant and the dhol arrive with the groom' },
   { k: 'bigday', en: 'The Big Day' },
-  { k: 'timings', en: 'Welcome of Baraat 8:00 P.M. · Dinner 9:00 P.M. · Saturday, 12 December 2026' },
   { k: 'rsvp', en: 'R.S.V.P. — Pradeep Saxena · Mudit Saxena · Manoj Saxena · Anupam Saxena · Praveen Saxena · Vinod Saxena · Ashish Saxena' },
-];
-
-const VENUE = [
-  { label: 'Welcome of Baraat', value: '08:00 P.M.' },
-  { label: 'Dinner', value: '09:00 P.M.' },
 ];
 
 function GoldMotes() {
@@ -162,7 +166,10 @@ export default function FinaleSection() {
         video.pause();
       }
       s.done = true;
-      setPhase('hold');
+      // No setPhase('hold') here: `phase` was ALREADY initialised to 'hold' by
+      // the useState above when prefers-reduced-motion matched, so this effect
+      // has nothing to change. Setting it again would be a redundant render
+      // (and the react-hooks set-state-in-effect lint rule was right to flag it).
       return () => clearTimers();
     }
 
@@ -305,13 +312,16 @@ export default function FinaleSection() {
                 willChange: 'clip-path, transform',
               }}
             >
-              <img
-                src={SCROLL_ART}
-                alt=""
-                aria-hidden="true"
-                className="h-full w-full object-contain"
-                decoding="async"
-              />
+              <picture className="block h-full w-full">
+                <source srcSet={SCROLL_ART_WEBP} type="image/webp" />
+                <img
+                  src={SCROLL_ART}
+                  alt=""
+                  aria-hidden="true"
+                  className="h-full w-full object-contain"
+                  decoding="async"
+                />
+              </picture>
             </div>
 
             {/* The leading edge: a gold glint that travels down with the unroll,
@@ -332,9 +342,11 @@ export default function FinaleSection() {
           </div>
         </div>
 
-        {/* The printed invitation, for assistive technology. The same 12 stages
+        {/* The printed invitation, for assistive technology. The same stages
             are typeset on the parchment itself, in this order, so the two agree
-            by construction rather than by hand. */}
+            by construction rather than by hand.
+
+            No venue is named here: the invitation deliberately excludes it. */}
         <div className="sr-only">
           <h2>The Wedding Ceremony of Simran and Sachit</h2>
           {STAGES.map((s) => (
@@ -343,7 +355,7 @@ export default function FinaleSection() {
               {s.name || s.en}
             </p>
           ))}
-          <p>Saturday, 12 December 2026 — Welcome of Baraat 8:00 P.M., Dinner 9:00 P.M., at Rudrakshaa Banquet.</p>
+          <p>Saturday, 12 December 2026 — Welcome of Baraat 8:00 P.M., Dinner 9:00 P.M.</p>
           <p>Sunday, 13 December 2026 — Vidaai, Taroon Ki Chaon Mein.</p>
         </div>
 
@@ -366,27 +378,19 @@ export default function FinaleSection() {
           </button>
         )}
 
-        {/* Part 7 — the final hold. The invitation stays open, readable and
-            still. Nothing here closes it, replays it or advances the page; the
-            visitor leaves when they choose to scroll. */}
-        {phase === 'hold' && (
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-40 flex flex-col items-center pb-[calc(1rem+env(safe-area-inset-bottom,0px))]">
-            <div className="w-full max-w-[34rem] px-5">
-              <div className="mb-3 h-px w-full bg-gradient-to-r from-transparent via-[#d4af37]/70 to-transparent" />
-              <dl className="font-cinzel flex items-center justify-center gap-6 text-center">
-                {VENUE.map((row) => (
-                  <div key={row.label}>
-                    <dt className="text-[7.5px] tracking-[0.24em] uppercase text-[#c9a961]/85">{row.label}</dt>
-                    <dd className="mt-0.5 text-[11px] tracking-[0.14em] text-[#fdf3d8]">{row.value}</dd>
-                  </div>
-                ))}
-              </dl>
-              <p className="font-cinzel mt-2 text-center text-[8px] tracking-[0.3em] uppercase text-[#d4af37]/90">
-                Saturday, 12 December 2026
-              </p>
-            </div>
-          </div>
-        )}
+        {/* THE FINAL HOLD — deliberately empty of text.
+
+            The open parchment IS the invitation: every name, date, timing,
+            family line and RSVP name is already typeset on it and readable at
+            rest. The previous version printed a timings bar along the bottom of
+            the viewport, which repeated the sheet's own "Welcome of Baraat /
+            Dinner" rows and its date in a second, smaller voice — the visitor
+            read the same information twice, at two different sizes, in one
+            frame. It has been removed so there is exactly one final
+            composition: the artwork, and nothing competing with it.
+
+            The invitation still stays open indefinitely. Nothing here closes,
+            replays or advances it. */}
       </div>
     </section>
   );
