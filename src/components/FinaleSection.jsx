@@ -47,17 +47,23 @@ const STILL = '/assets/finale/palace-still.webp';
 const STILL_FALLBACK = '/assets/finale/palace-still.png';
 const FILM = '/assets/finale/varmala-fireworks-night.mp4';
 const FILM_POSTER = '/assets/finale/varmala-poster.jpg';
-const SCROLL_ART = '/assets/finale/invitation-scroll.png';
-/* Lossless WebP of the SAME artwork (encoded locally from the PNG, method=6).
-   Verified bit-identical on every visible pixel — the only differing bytes sit
-   under fully transparent alpha-0 pixels, which cannot render. 3,209,014 B ->
-   2,212,878 B (−31.0%). The PNG stays as the <img> fallback. */
-const SCROLL_ART_WEBP = '/assets/finale/invitation-scroll.webp';
+const SCROLL_ART = '/assets/finale/invitation-scroll-v2.png';
+/* The supplied invitation card, cut from the photograph with a feathered matte
+   and colour-decontaminated rim (no halo, no pinholes, ornaments intact).
+   Lossless WebP of the same pixels: 979,657 B -> 720,750 B. The PNG stays as
+   the <img> fallback for any engine without WebP. */
+const SCROLL_ART_WEBP = '/assets/finale/invitation-scroll-v2.webp';
+/* Native size of the artwork. The card is never stretched beyond this by more
+   than the small cap below, so it cannot turn to mush on a large display. */
+const ART_W = 515;
+const ART_H = 787;
+const ART_RATIO = ART_H / ART_W;
 
-/* The unroll is the one long beat, and its length is the brief's, not mine. */
-const ENTER_MS = 820; // parchment rises into the foreground
-const UNROLL_MS = 3400; // physical top-to-bottom unroll
-const HOLD_AT = 3.58 / 8.041667; // climax of the film, if it never reports `ended`
+/* The card is introduced, not unrolled. Its own top and bottom rollers are
+   already painted into the artwork, so a physical clip-path unroll was fighting
+   the picture — it cut the sheet in half and dragged a gold "leading edge"
+   across already-drawn rollers. The reveal is now a rise + settle. */
+const RISE_MS = 1150;
 
 /* The printed invitation, in the order it is typeset on the parchment. The
    artwork is a fully typeset sheet, so this copy is what assistive technology

@@ -198,12 +198,23 @@ export default function App() {
                 continuous sheet. */}
             <RsvpSection isNight={isNight} />
 
-            {/* THE FINALE — the last chapter, night only, in the same normal
-                document flow. It is deliberately NOT inside InvitationScroll,
-                which is left exactly as approved. Because it is a flush sibling
-                of the RSVP, it scrolls up from below with no gap and no black
-                frame, and the palace background it opens on never unmounts. */}
-            {isNight && <FinaleSection />}
+            {/* THE FINALE — the last chapter, in the same normal document flow.
+                It is deliberately NOT inside InvitationScroll, which is left
+                exactly as approved. Because it is a flush sibling of the RSVP,
+                it scrolls up from below with no gap and no black frame, and the
+                palace background it opens on never unmounts.
+
+                ALWAYS MOUNTED. This used to be `{isNight && <FinaleSection />}`,
+                which meant the finale only existed for a visitor who happened to
+                toggle Night — anyone who left the site on Day (the default)
+                reached the end of the RSVP and found nothing there. That is the
+                bug behind "the final celebration video is not playing".
+
+                "Night only" is a statement about the ARTWORK, not about a
+                condition: the finale is painted as a night palace with the
+                varmala film, and it stays that way regardless of the Day/Night
+                toggle above it. There is no Day variant and no toggle here. */}
+            <FinaleSection />
           </div>
         </>
       )}
