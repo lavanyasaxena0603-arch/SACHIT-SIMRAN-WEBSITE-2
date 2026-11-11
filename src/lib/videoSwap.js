@@ -66,6 +66,59 @@ export async function playSafely(video) {
 }
 
 /**
+ * Start a film on arrival, and KEEP trying until it is actually running.
+ *
+ * WHY THIS REPLACES A BARE `playSafely()`
+ * --------------------------------------
+ * A single `play()` call is not enough. On first arrival the element has often
+ * only fetched metadata, so `play()` rejects with `NotSupportedError` (the
+ * decoder has no frame yet) or aborts because the browser is still opening the
+ * byte range. The old code treated that first rejection as "autoplay is
+ * blocked", raised the needs-a-tap state, and the visitor was shown a play
+ * button on a film that would have started perfectly well a few hundred
+ * milliseconds later.
+ *
+ * Instead: ask again whenever the element reports it has data, up to `attempts`
+ * times. Only after every attempt has failed do we admit it needs a gesture —
+ * and by then it genuinely does (iOS Low Power Mode, a hardened autoplay
+ * policy, or a dead file).
+ *
+ * The retries are cheap: they are driven by `canplay`/`loadeddata`, never by a
+ * polling timer, so nothing spins while the film is healthy.
+ */
+export async function ensurePlaying(video, { attempts = 4 } = {}) {
+  if (!video) return false;
+
+  for (let i = 0; i < attempts; i += 1) {
+    if (!video.paused && !video.ended) return true;
+
+    const ok = await playSafely(video);
+    if (ok) return true;
+
+    // `ended` is not a failure: the film finished, nothing to start.
+    if (video.ended) return true;
+
+    // Wait for the decoder to produce a frame before asking again.
+    await new Promise((resolve) => {
+      let settled = false;
+      const done = () => {
+        if (settled) return;
+        settled = true;
+        video.removeEventListener('canplay', done);
+        video.removeEventListener('loadeddata', done);
+        clearTimeout(timer);
+        resolve();
+      };
+      const timer = setTimeout(done, 700);
+      video.addEventListener('canplay', done, { once: true });
+      video.addEventListener('loadeddata', done, { once: true });
+    });
+  }
+
+  return !video.paused && !video.ended;
+}
+
+/**
  * Swap the visible Day/Night video while preserving the exact playhead.
  * Returns the timestamp that was carried across, so callers can verify sync.
  */

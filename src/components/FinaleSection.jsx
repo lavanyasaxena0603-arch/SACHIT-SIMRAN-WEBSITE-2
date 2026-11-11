@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { playSafely } from '../lib/videoSwap';
+import { playSafely, ensurePlaying } from '../lib/videoSwap';
 
 /**
  * THE GRAND ROYAL WEDDING FINALE — night only.
@@ -187,9 +187,10 @@ export default function FinaleSection() {
       setPhase('motion');
       if (video) {
         video.currentTime = 0;
-        playSafely(video).then((ok) => {
-          // Refused autoplay: offer the tap, but keep the failsafe armed so the
-          // chapter still resolves for a visitor who does nothing.
+        ensurePlaying(video).then((ok) => {
+          // Only after every retry has failed is the tap the honest answer.
+          // A single rejection used to show the play button on a film that was
+          // about to start by itself.
           if (!ok) setNeedsTap(true);
         });
       }

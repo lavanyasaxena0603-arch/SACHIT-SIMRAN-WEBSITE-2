@@ -4,7 +4,7 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useGSAP } from '@gsap/react';
 import { Heart, Sparkles, ChevronDown, Calendar, Clock, MapPin, Navigation, Play } from 'lucide-react';
 import { useCountdown } from '../lib/countdown';
-import { swapThemeVideo, playSafely } from '../lib/videoSwap';
+import { swapThemeVideo, playSafely, ensurePlaying } from '../lib/videoSwap';
 
 gsap.registerPlugin(ScrollTrigger, useGSAP);
 
@@ -554,10 +554,11 @@ function StorySection({ isNight }) {
         /* a poster-only state cannot seek; play() still works */
       }
 
-      const ok = await playSafely(v);
+      const ok = await ensurePlaying(v);
       if (!ok) {
-        // Autoplay refused (or the file failed): hand over to a real control
-        // rather than leaving a frozen frame with no explanation.
+        // Genuinely refused (iOS Low Power Mode, hardened autoplay policy, or a
+        // dead file). Only now is a real control the honest answer — the retries
+        // inside ensurePlaying have already ruled out "it just needed a moment".
         s.started = false;
         setUi({ needsTap: true, failed: false });
         return;
@@ -1113,19 +1114,34 @@ export default function InvitationScroll({ isNight }) {
       const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
       const items = gsap.utils.toArray('.reveal');
 
-      if (reduce) {
-        gsap.set(items, { opacity: 1, y: 0, clearProps: 'transform' });
-        return undefined;
-      }
+      /* REDUCED MOTION — keep the reveal, remove the MOVEMENT.
+       *
+       * This used to be `gsap.set(items, { opacity: 1, y: 0 }); return;`, which
+       * switched every reveal off entirely. Measured on a reduce-motion machine:
+       * the engagement heading read 1.00 / 1.00 / 1.00 on every sample — it was
+       * already fully opaque before it entered the viewport, so arriving at the
+       * venue produced no entrance at all. The copy, the plates and the pop-up
+       * detail cards simply existed. That is exactly the report: "the animations
+       * of the pop-up bar and the venue page animations are not there".
+       *
+       * `prefers-reduced-motion` is about VESTIBULAR motion — travel, parallax,
+       * zoom, spin. A short opacity cross-fade is not one of those; it is the
+       * same information arriving legibly instead of flashing into being. So the
+       * animation still runs, it just loses its 26px slide and its stagger. */
+      const shift = reduce ? 0 : 26;
+      const duration = reduce ? 0.4 : 0.75;
+      const stagger = reduce ? 0 : 0.045;
+
+      if (!items.length) return undefined;
 
       const triggers = items.map((el, i) =>
         gsap.fromTo(
           el,
-          { opacity: 0, y: 26 },
+          { opacity: 0, y: shift },
           {
             opacity: 1,
             y: 0,
-            duration: 0.75,
+            duration,
             ease: 'power2.out',
             scrollTrigger: {
               trigger: el,
@@ -1133,7 +1149,7 @@ export default function InvitationScroll({ isNight }) {
               toggleActions: 'play none none reverse',
               invalidateOnRefresh: true,
             },
-            delay: (i % 5) * 0.045,
+            delay: (i % 5) * stagger,
           },
         ),
       );
