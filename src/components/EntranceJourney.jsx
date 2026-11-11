@@ -31,7 +31,7 @@ const NIGHT_GATE_VIDEO = '/assets/scene1/night-video.mp4';
 const DAY_COURT_VIDEO = '/assets/scene2/day-courtyard.mp4';
 const NIGHT_COURT_VIDEO = '/assets/scene2/night-courtyard.mp4';
 
-export default function EntranceJourney({ isNight, isMuted, onComplete }) {
+export default function EntranceJourney({ isNight, onComplete }) {
   const [showCard, setShowCard] = useState(true);
   const [phase, setPhase] = useState('gate');
   const [burst, setBurst] = useState(0);
@@ -45,22 +45,19 @@ export default function EntranceJourney({ isNight, isMuted, onComplete }) {
   const prevNightRef = useRef(isNight);
   const finishedRef = useRef(false);
 
-  // Keep the audio state in step with the single global control.
+  // EVERY clip on the page is silent.
+  //
+  // The invitation carries exactly one soundtrack (see <AmbientMusic />), so
+  // these films are muted unconditionally — not "muted unless the global pill
+  // says otherwise". Previously this effect unmuted whichever gate/courtyard
+  // film matched the current theme, which would now fight the music track.
   useEffect(() => {
-    const pairs = [
-      [dayGateRef.current, false],
-      [nightGateRef.current, true],
-      [dayCourtRef.current, false],
-      [nightCourtRef.current, true],
-    ];
-    for (const [video, isNightVideo] of pairs) {
+    const all = [dayGateRef.current, nightGateRef.current, dayCourtRef.current, nightCourtRef.current];
+    for (const video of all) {
       if (!video) continue;
-      // Only the layer matching the current theme may be unmuted, and only if
-      // the global control is not muted.
-      const matchesTheme = isNight === isNightVideo;
-      video.muted = matchesTheme ? isMuted : true;
+      video.muted = true;
     }
-  }, [isMuted, isNight]);
+  }, [isNight]);
 
   // Day/Night swap — only among the layers that are actually on screen.
   useEffect(() => {
@@ -73,23 +70,20 @@ export default function EntranceJourney({ isNight, isMuted, onComplete }) {
       swapThemeVideo({
         fromVideo: isNight ? dayCourtRef.current : nightCourtRef.current,
         toVideo: isNight ? nightCourtRef.current : dayCourtRef.current,
-        muted: isMuted,
       });
     } else {
       swapThemeVideo({
         fromVideo: isNight ? dayGateRef.current : nightGateRef.current,
         toVideo: isNight ? nightGateRef.current : dayGateRef.current,
-        muted: isMuted,
       });
     }
-  }, [isNight, entered, phase, isMuted]);
+  }, [isNight, entered, phase]);
 
   const handleEnter = async () => {
     setShowCard(false);
     const active = isNight ? nightGateRef.current : dayGateRef.current;
     if (active) {
       active.currentTime = 0;
-      active.muted = isMuted;
       await playSafely(active);
     }
   };
@@ -103,7 +97,6 @@ export default function EntranceJourney({ isNight, isMuted, onComplete }) {
     const court = isNight ? nightCourtRef.current : dayCourtRef.current;
     if (court) {
       if (court.ended || court.currentTime > 0.05) court.currentTime = 0;
-      court.muted = isMuted;
       await playSafely(court);
     }
     setTimeout(() => setBurst(0), 900);
@@ -140,6 +133,7 @@ export default function EntranceJourney({ isNight, isMuted, onComplete }) {
         src={DAY_GATE_VIDEO}
         playsInline
         preload="auto"
+        muted
         onEnded={handleGateEnded}
         className={`absolute inset-0 w-full h-full object-cover object-center transition-opacity duration-700 ${
           entered && !isNight ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'
@@ -163,6 +157,7 @@ export default function EntranceJourney({ isNight, isMuted, onComplete }) {
         src={DAY_COURT_VIDEO}
         playsInline
         preload="auto"
+        muted
         onEnded={handleCourtyardEnded}
         className={`absolute inset-0 w-full h-full object-cover object-center transition-opacity duration-700 ${
           phase === 'courtyard' && !isNight ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'

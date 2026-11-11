@@ -3,6 +3,7 @@ import EntranceJourney from './components/EntranceJourney';
 import ScrollStory from './components/ScrollStory';
 import CelebrationJourney from './components/CelebrationJourney';
 import GlobalControls from './components/GlobalControls';
+import AmbientMusic from './components/AmbientMusic';
 
 /**
  * TWO MOMENTS, ONE JOURNEY
@@ -40,7 +41,10 @@ const FADE_MS = 900;
 
 export default function App() {
   const [isNight, setIsNight] = useState(false);
-  const [isMuted, setIsMuted] = useState(true);
+  // The invitation's soundtrack is meant to be heard, so sound is ON by
+  // default. Browsers still require a gesture before audible playback, so
+  // <AmbientMusic /> waits for the first tap/click/keypress and starts then.
+  const [isMuted, setIsMuted] = useState(false);
 
   // 'entrance' -> only the entrance
   // 'handoff'  -> entrance frozen underneath, scroll stage fading in above it
@@ -69,6 +73,11 @@ export default function App() {
 
   return (
     <main className="w-full min-h-screen bg-[#040711] text-[#f7f2e7] selection:bg-[#d4af37]/30 selection:text-white">
+      {/* The single soundtrack. Mounted once, above every scene, so it plays
+          continuously across the whole invitation instead of restarting each
+          time a scene mounts. Every <video> below it is muted. */}
+      <AmbientMusic isMuted={isMuted} />
+
       <GlobalControls
         isNight={isNight}
         onToggleNight={toggleNight}
@@ -102,11 +111,7 @@ export default function App() {
         <div
           className={`fixed inset-0 z-50 ${stage === 'handoff' ? 'pointer-events-none' : ''}`}
         >
-          <EntranceJourney
-            isNight={isNight}
-            isMuted={isMuted}
-            onComplete={handleEntranceComplete}
-          />
+          <EntranceJourney isNight={isNight} onComplete={handleEntranceComplete} />
         </div>
       )}
     </main>
