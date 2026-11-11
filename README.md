@@ -198,6 +198,9 @@ Kept in `src/index.css` and used throughout:
   the elephants' sway and the falling petals **baked into the footage**. The component
   renders no text of its own — the film is the single source of that animation, and it
   must be seeked by the timeline or the frame looks empty.
+- `public/assets/scene5/story-night.jpg` is the dedicated night plate for the story act.
+  Night mode crossfades this image over the film; the film is never unmounted, so the
+  scroll timeline and the playhead are never touched.
 - `story-poster.jpg` is frame 0 of that film. Frame 0 intentionally has the elephants and
   the gold flourish but no text and no petals.
 
