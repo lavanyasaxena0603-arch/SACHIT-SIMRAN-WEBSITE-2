@@ -143,3 +143,37 @@
 .safe-bottom {
   bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
 }
+
+/* ---------------------------------------------------------------- FINALE ---- */
+/* Gold motes for the wedding finale. Transform + opacity only, so they stay on
+   the compositor; the whole layer is removed from the flow of time under
+   reduced motion rather than merely slowed down. */
+@keyframes finaleMoteRise {
+  0% {
+    transform: translate3d(0, 0, 0) scale(0.7);
+    opacity: 0;
+  }
+  12% {
+    opacity: 0.85;
+  }
+  70% {
+    opacity: 0.55;
+  }
+  100% {
+    transform: translate3d(14px, -112dvh, 0) scale(1.05);
+    opacity: 0;
+  }
+}
+
+.finale-mote {
+  animation-name: finaleMoteRise;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .finale-mote {
+    animation: none;
+    opacity: 0;
+  }
+}

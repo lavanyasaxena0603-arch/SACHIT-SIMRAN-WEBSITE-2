@@ -7,6 +7,7 @@ import SectionHeader from './components/SectionHeader';
 import GlobalControls from './components/GlobalControls';
 import AmbientMusic from './components/AmbientMusic';
 import RsvpSection from './components/RsvpSection';
+import FinaleSection from './components/FinaleSection';
 import OrientationGate from './components/OrientationGate';
 import RotateHint from './components/RotateHint';
 import useOrientation from './lib/useOrientation';
@@ -196,6 +197,13 @@ export default function App() {
                 from below like every other chapter and the document stays one
                 continuous sheet. */}
             <RsvpSection isNight={isNight} />
+
+            {/* THE FINALE — the last chapter, night only, in the same normal
+                document flow. It is deliberately NOT inside InvitationScroll,
+                which is left exactly as approved. Because it is a flush sibling
+                of the RSVP, it scrolls up from below with no gap and no black
+                frame, and the palace background it opens on never unmounts. */}
+            {isNight && <FinaleSection />}
           </div>
         </>
       )}
