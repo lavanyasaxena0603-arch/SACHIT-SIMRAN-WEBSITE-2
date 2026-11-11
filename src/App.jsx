@@ -1,10 +1,16 @@
 import React, { useState, useEffect } from 'react';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import EntranceJourney from './components/EntranceJourney';
 import InvitationScroll from './components/InvitationScroll';
 import GoldenThread from './components/GoldenThread';
 import SectionHeader from './components/SectionHeader';
 import GlobalControls from './components/GlobalControls';
 import AmbientMusic from './components/AmbientMusic';
+import RsvpSection from './components/RsvpSection';
+import OrientationGate from './components/OrientationGate';
+import RotateHint from './components/RotateHint';
+import useOrientation from './lib/useOrientation';
+import useOrientationContinuity from './lib/useOrientationContinuity';
 
 /**
  * TWO PHASES, ONE DOCUMENT
@@ -71,6 +77,43 @@ export default function App() {
   const [stage, setStage] = useState('entrance');
   const [revealed, setRevealed] = useState(false);
 
+  // ---- Orientation --------------------------------------------------------
+  // TWO different treatments, because the two halves of the journey have
+  // different stakes:
+  //
+  //   `OrientationGate` — a full-screen invitation to rotate. Only ever during
+  //   the ENTRANCE, before the visitor has read anything, so nothing is
+  //   interrupted. Always dismissible: Part 1A is explicit that nobody may be
+  //   trapped, and the final creative direction's "compulsory lock" is not
+  //   something a web page can actually do — `screen.orientation.lock()`
+  //   requires fullscreen AND a gesture, and iOS Safari does not implement it.
+  //   What we can do is attempt it from the visitor's first tap, which is what
+  //   the gate does; on Android that really does rotate the screen.
+  //
+  //   `RotateHint` — a non-modal pill. Once Phase B is open the visitor is
+  //   mid-story, so re-blocking them would be a regression, not a suggestion.
+  //   It appears at most until the phone has been horizontal once, then retires
+  //   for the session.
+  const { isLandscape, isMobile, everLandscape } = useOrientation();
+  const [gateDismissed, setGateDismissed] = useState(false);
+  const [hintDismissed, setHintDismissed] = useState(false);
+
+  // Having been held sideways once, the visitor has seen the full composition;
+  // neither treatment is "needed" again. `everLandscape` is computed inside the
+  // orientation hook's own state update, so this is a plain derivation with no
+  // second render and no effect chained to a viewport event.
+  const rotateSettled = everLandscape;
+
+  const showGate =
+    isMobile && !isLandscape && !gateDismissed && !rotateSettled && stage === 'entrance';
+
+  const showHint =
+    isMobile && !isLandscape && !hintDismissed && !rotateSettled && stage !== 'entrance';
+
+  // Rotate across a real geometry change; keep the chapter that was being read
+  // under the top of the screen. Enabled only once Phase B exists to anchor to.
+  useOrientationContinuity(stage !== 'entrance');
+
   const handleEntranceComplete = () => {
     window.scrollTo(0, 0);
     setStage('handoff');
@@ -86,6 +129,18 @@ export default function App() {
       clearTimeout(id);
     };
   }, [stage]);
+
+  // A rotation changes the viewport height, which changes every ScrollTrigger
+  // start/end. Refreshing on the next frame re-measures them so the golden
+  // thread and every reveal stay locked to the real scroll position instead of
+  // to the pre-rotation geometry. Nothing is re-mounted and no scroll position
+  // is reset, so playback and progress are preserved.
+  useEffect(() => {
+    let frame = requestAnimationFrame(() => {
+      ScrollTrigger.refresh();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [isLandscape]);
 
   const toggleNight = () => setIsNight((v) => !v);
   const toggleMute = () => setIsMuted((v) => !v);
@@ -134,6 +189,13 @@ export default function App() {
           >
             <SectionHeader />
             <InvitationScroll isNight={isNight} />
+
+            {/* THE RSVP sits AFTER the seven invitation sections, in the same
+                normal document flow — not inside InvitationScroll, which is
+                left completely untouched. It is a sibling, so it scrolls in
+                from below like every other chapter and the document stays one
+                continuous sheet. */}
+            <RsvpSection />
           </div>
         </>
       )}
@@ -147,6 +209,16 @@ export default function App() {
           <EntranceJourney isNight={isNight} onComplete={handleEntranceComplete} />
         </div>
       )}
+
+      {/* Above everything, including the entrance, because the very first thing
+          a portrait phone sees is the invitation card — and that card is the
+          one composition worst served by portrait cropping. Dismissible, so it
+          can never trap anyone. Entrance only: once the story is open the
+          re-suggestion is the non-modal pill below instead. */}
+      <OrientationGate visible={showGate} onDismiss={() => setGateDismissed(true)} />
+
+      {/* Non-blocking, scrolls with the page, retires itself. */}
+      <RotateHint visible={showHint} onDismiss={() => setHintDismissed(true)} />
     </main>
   );
 }

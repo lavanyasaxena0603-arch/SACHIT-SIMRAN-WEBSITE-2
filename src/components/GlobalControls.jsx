@@ -9,7 +9,7 @@ import { Sun, Moon, Volume2, VolumeX } from 'lucide-react';
  */
 export default function GlobalControls({ isNight, onToggleNight, isMuted, onToggleMute }) {
   return (
-    <div className="fixed top-4 right-4 sm:top-7 sm:right-8 z-[60] flex items-center gap-2 sm:gap-2.5">
+    <div className="fixed top-4 safe-right sm:top-7 z-[60] flex items-center gap-2 sm:gap-2.5">
       <button
         onClick={onToggleMute}
         aria-label={isMuted ? 'Unmute' : 'Mute'}

@@ -3,7 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- viewport-fit=cover is what makes env(safe-area-inset-*) report real
+         values; without it a notched phone reports 0 and the header sits under
+         the cutout once rotated to landscape. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>Simran & Sachit — Royal Wedding Invitation</title>
     <!-- Google Fonts for Royal Indian Wedding Theme -->
     <link rel="preconnect" href="https://fonts.googleapis.com">

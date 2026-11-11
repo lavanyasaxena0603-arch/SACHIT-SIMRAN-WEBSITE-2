@@ -82,7 +82,7 @@ export default function GoldenThread({ trackId = 'invitation-scroll' }) {
   return (
     <div
       aria-hidden="true"
-      className="pointer-events-none fixed inset-y-0 left-0 z-[56] w-[16px] sm:w-[24px] lg:w-[32px]"
+      className="pointer-events-none safe-left-edge fixed inset-y-0 z-[56] w-[16px] sm:w-[24px] lg:w-[32px]"
     >
       <svg className="absolute inset-0 h-full w-full" viewBox="0 0 20 1000" preserveAspectRatio="none" fill="none">
         {/* Ghost track — the thread's full length, barely present. */}

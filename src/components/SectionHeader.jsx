@@ -23,7 +23,13 @@ import Monogram from './Monogram';
  */
 export default function SectionHeader() {
   return (
-    <header className="pointer-events-none fixed top-6 left-6 z-[57] flex items-center gap-2.5 sm:top-10 sm:left-12 sm:gap-3.5">
+    // `safe-left` is not a change in normal use: env() resolves to 0px on
+    // desktop and in portrait, leaving the verified 1.5rem / 3rem offsets
+    // byte-identical. It only adds anything in landscape on a notched phone,
+    // where the camera cutout sits on the left edge — directly over this
+    // monogram. The entrance header carries the same class, so the two stay
+    // pixel-identical and the hand-off remains invisible.
+    <header className="pointer-events-none safe-left fixed top-6 z-[57] flex items-center gap-2.5 sm:top-10 sm:gap-3.5">
       <Monogram className="h-auto w-[20px] shrink-0 drop-shadow-[0_2px_10px_rgba(212,175,55,0.5)] sm:w-6" />
       <div className="text-left">
         <p className="font-cinzel text-[8px] leading-tight tracking-[0.3em] uppercase text-[#dfba5c] sm:text-[9px]">

@@ -201,7 +201,7 @@ export default function EntranceJourney({ isNight, onComplete }) {
       {/* ---------- Persistent header (no scene numbering: one story) ---------- */}
       {/* Offset must clear the gold frame (inset-3 on mobile, sm:inset-6), or the
           monogram rides the border line. 6/12 leaves 12px of air on both. */}
-      <div className="absolute top-6 left-6 sm:top-10 sm:left-12 z-30 flex items-center gap-2.5 sm:gap-3.5">
+      <div className="absolute safe-left top-6 z-30 flex items-center gap-2.5 sm:top-10 sm:gap-3.5">
         <Monogram className="w-[20px] sm:w-6 h-auto shrink-0 drop-shadow-[0_2px_10px_rgba(212,175,55,0.5)]" />
         <div>
           <p className="font-cinzel text-[8px] sm:text-[9px] tracking-[0.3em] uppercase text-[#dfba5c] leading-tight">

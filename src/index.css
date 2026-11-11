@@ -68,3 +68,78 @@
 .gold-card-shadow {
   box-shadow: 0 25px 70px rgba(0, 0, 0, 0.85), 0 0 30px rgba(212, 175, 55, 0.2);
 }
+
+/* ------------------------------------------------------------------------- *
+ * ORIENTATION: the one frame that must not animate
+ *
+ * A rotation rescales every `dvh`-sized section at once. Any CSS transition
+ * still in flight at that moment re-tweens geometry from the OLD viewport to
+ * the NEW one, which reads as the page sliding on its own — the "sudden jump".
+ * useOrientationContinuity adds this class for the swap and removes it 380ms
+ * later, after the scroll anchor has been re-applied, so the fade back in is
+ * invisible. GSAP writes inline styles and is unaffected.
+ * ------------------------------------------------------------------------- */
+.rotation-settling *,
+.rotation-settling *::before,
+.rotation-settling *::after {
+  transition: none !important;
+  animation-duration: 0s !important;
+}
+
+/* ------------------------------------------------------------------------- *
+ * SAFE AREAS (landscape phones with a notch / camera cutout)
+ *
+ * With `viewport-fit=cover` the page really does extend under the cutout, and
+ * in landscape that cutout sits on the LEFT or RIGHT edge — exactly where the
+ * header, the sound controls and the golden thread rail live. env() resolves to
+ * 0px in portrait, on desktop and on any device without a notch, so every
+ * approved offset is byte-for-byte unchanged everywhere it was already correct.
+ *
+ * Declared outside @layer so these beat Tailwind's layered utilities without
+ * needing !important.
+ * ------------------------------------------------------------------------- */
+.safe-left {
+  left: calc(1.5rem + env(safe-area-inset-left, 0px));
+}
+@media (min-width: 640px) {
+  .safe-left {
+    left: calc(3rem + env(safe-area-inset-left, 0px));
+  }
+}
+
+.safe-left-edge {
+  left: env(safe-area-inset-left, 0px);
+}
+
+.safe-right {
+  right: calc(1rem + env(safe-area-inset-right, 0px));
+}
+@media (min-width: 640px) {
+  .safe-right {
+    right: calc(2rem + env(safe-area-inset-right, 0px));
+  }
+}
+
+/* Horizontal breathing space for full-bleed overlays and the RSVP sheet.
+   calc(base + inset) rather than max(), so the approved padding is preserved
+   exactly (inset is 0px on every device without a cutout) and only ever grows
+   where the hardware actually intrudes. */
+.safe-both-x {
+  padding-left: calc(1.25rem + env(safe-area-inset-left, 0px));
+  padding-right: calc(1.25rem + env(safe-area-inset-right, 0px));
+}
+
+.safe-pad-x {
+  padding-left: calc(1rem + env(safe-area-inset-left, 0px));
+  padding-right: calc(1rem + env(safe-area-inset-right, 0px));
+}
+@media (min-width: 640px) {
+  .safe-pad-x {
+    padding-left: calc(2rem + env(safe-area-inset-left, 0px));
+    padding-right: calc(2rem + env(safe-area-inset-right, 0px));
+  }
+}
+
+.safe-bottom {
+  bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+}

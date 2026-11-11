@@ -116,6 +116,84 @@ every mode change.
 
 ---
 
+## Orientation (mobile)
+
+The films are one approved 16:9 composition. A 390x844 portrait window shows only
+**26%** of a 1280x720 frame with `object-cover` — 74% of the picture is cropped away.
+Rotated to 844x390 the same frame loses 18% of its height and the whole scene reads.
+That measurement is the entire reason for this feature; no video file was re-encoded,
+cropped, zoomed or replaced.
+
+Two treatments, deliberately different:
+
+| Stage | Component | Blocking? |
+|---|---|---|
+| Entrance (Phase A) | `OrientationGate` | Full-screen, **always dismissible** |
+| Invitation (Phase B) | `RotateHint` | A small pill, never blocks scrolling |
+
+`Rotation is encouraged, not compulsory.` The gate is dismissed by "Continue in
+Portrait", by the X, or simply by rotating. Once `everLandscape` is true — the phone has
+been held sideways once this session — **neither** appears again, so a guest is never
+re-prompted mid-story.
+
+**A compulsory lock is not achievable on the web.** `screen.orientation.lock()` requires
+fullscreen *and* a user gesture, and iOS Safari does not implement it at all. So the gate
+offers "Enter Landscape", which requests fullscreen and then locks from inside that
+gesture — on Android that genuinely rotates the screen; on iOS it resolves harmlessly and
+the guest rotates by hand. Nothing is requested from a sensor: no gyroscope, no motion
+permission, no popup. Detection uses `screen.orientation.type` with a
+`innerWidth > innerHeight` fallback, coalesced into one read per frame.
+
+### Continuity across a rotation
+
+Every chapter is sized in `dvh`, so rotating rescales the whole document. Keeping the raw
+`scrollY` therefore does **not** keep the scene (measured drift: 2049 -> 4425, a different
+chapter). `src/lib/scrollAnchor.js` records the visitor's *place in the story* — which
+chapter is under the top of the viewport plus how far into it, as a 0..1 ratio — and
+`useOrientationContinuity` restores it in the same frame, after a `ScrollTrigger.refresh()`,
+with the `.rotation-settling` class suppressing CSS transitions so nothing tweens from old
+geometry to new. Only a genuine aspect flip triggers it; a height-only change (URL bar,
+on-screen keyboard under the RSVP) is left alone. Verified: same chapter, ratio 0.1418 ->
+0.1408, golden thread dash offset 285 -> 285.
+
+### Safe areas
+
+`index.html` sets `viewport-fit=cover`, and `.safe-left` / `.safe-right` /
+`.safe-left-edge` / `.safe-pad-x` add `env(safe-area-inset-*)` to the *existing* offsets via
+`calc(base + inset)`. `env()` is `0px` on desktop, in portrait and on any device without a
+cutout, so every approved position is unchanged there; only a landscape notched phone gains
+anything, where the camera cutout would otherwise sit on the monogram, the sound controls
+and the golden thread rail.
+
+---
+
+## RSVP
+
+`src/components/RsvpSection.jsx`, after the seven chapters, in the same normal document
+flow. Built on the supplied Mughal artwork (the warm ivory `#F7EBDD` of the arch, the
+antique gold `#A87932` of the latticework), rendered as a lazy `<picture>` with a 492 KB
+WebP and the 3.4 MB PNG as fallback. Optimised independently for desktop, tablet and
+portrait phone — **rotation is never required to answer**.
+
+Validation is real (name >= 2 chars, attendance required, and when accepting, 1-10 guests
+plus at least one chosen event). Declining collapses the guest count and event pickers to
+`max-h-0 / opacity-0 / pointer-events-none` and clears them, so a stale count can never be
+submitted with a decline.
+
+**Honesty contract** (`src/lib/rsvp.js`) — this project has no backend, so the form must
+never imply otherwise:
+
+| `VITE_RSVP_ENDPOINT` | Behaviour | What the guest is told |
+|---|---|---|
+| set | real JSON `POST`, success only on 2xx | "Your response has reached Simran & Sachit." |
+| unset (current) | saved to `localStorage` | "Saved on this device..." + "not yet connected to a response server" |
+| request fails | nothing saved | the real error, and the form stays editable |
+
+To make responses actually arrive, set `VITE_RSVP_ENDPOINT` at build time to any endpoint
+accepting a JSON POST (a Worker, Formspree, an Apps Script web app). No other change needed.
+
+---
+
 ## Sizing
 
 Act content is sized with `clamp(min, N dvh, max)` — driven by viewport **height**, not
