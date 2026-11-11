@@ -35,9 +35,10 @@ const WELCOME_DAY = '/assets/scene3/welcome-day.jpg';
 const WELCOME_NIGHT = '/assets/scene3/welcome-night.jpg';
 const PALACE_DAY = '/assets/couple/palace-day.jpg';
 const PALACE_NIGHT = '/assets/couple/palace-night.jpg';
-const STORY_VIDEO = '/assets/scene5/scroll-story-scrub.mp4';
+const STORY_DAY = '/assets/scene5/story-day-scrub.mp4';
+const STORY_NIGHT = '/assets/scene5/story-night-scrub.mp4';
 const STORY_POSTER = '/assets/scene5/story-poster.jpg';
-const STORY_NIGHT = '/assets/scene5/story-night.jpg';
+const STORY_NIGHT_POSTER = '/assets/scene5/story-night-poster.jpg';
 
 /**
  * One backdrop = a day plate and a night plate stacked, crossfading on the
@@ -218,41 +219,41 @@ function CoupleAct({ isNight }) {
 /* ---------------------------------------------------------------- ACT C ---- */
 /**
  * The quote, the gold flourish above it, the divider beneath it and the falling
- * rose petals are ALL drawn inside scroll-story-scrub.mp4 — the footage
- * typewrites the words as the playhead advances, and both elephants visibly
- * sway. So this act deliberately renders no text of its own: the film is the
- * single source of that animation.
+ * rose petals are ALL drawn inside the story films (story-day-scrub.mp4 /
+ * story-night-scrub.mp4) — the footage typewrites the words as the playhead
+ * advances, and both elephants visibly sway. So this act deliberately renders
+ * no text of its own: the film is the single source of that animation.
  *
- * IMPORTANT: never leave this element parked at frame 0. Frame 0 of the film
- * has the elephants and the flourish but NO text and NO petals, so a video
- * that is mounted but never advanced looks like "nothing is written here".
- * The caller is responsible for driving currentTime as the page scrolls.
+ * IMPORTANT: never leave these elements parked at frame 0. Frame 0 of the film
+ * has the courtyard but NO text and few petals, so a video that is mounted but
+ * never advanced looks like "nothing is written here". The caller drives
+ * currentTime on BOTH films as the page scrolls.
  */
 function StoryAct({ isNight }) {
   return (
     <div className="absolute inset-0 z-30">
-      {/* NIGHT: the dedicated night plate. Crossfades with the scrubbed day film
-          so the scroll timeline / playhead is never touched — this is the same
-          pattern the backdrops already use. */}
-      <img
-        src={STORY_NIGHT}
-        alt="Romantic night courtyard with elephants, lanterns and rose petals"
-        className={`absolute inset-0 w-full h-full object-cover object-center transition-opacity duration-[900ms] ease-out ${
-          isNight ? 'opacity-100' : 'opacity-0'
-        }`}
-      />
-
-      <video
-        className={`story-video absolute inset-0 w-full h-full object-cover transition-opacity duration-[900ms] ease-out ${
-          isNight ? 'opacity-0' : 'opacity-100'
-        }`}
-        src={STORY_VIDEO}
-        poster={STORY_POSTER}
-        muted
-        playsInline
-        preload="auto"
-        disablePictureInPicture
-      />
+      {/* TWO FILMS, one playhead.
+          Both day and night are real films, mounted from first paint and seeked
+          by the SAME scroll timeline to the SAME normalised time, so switching
+          theme is a pure opacity crossfade — the scroll position, the playhead
+          and the drawn quote never move. Only one is visible at a time. */}
+      {[
+        { key: 'day', src: STORY_DAY, poster: STORY_POSTER, on: !isNight },
+        { key: 'night', src: STORY_NIGHT, poster: STORY_NIGHT_POSTER, on: isNight },
+      ].map((film) => (
+        <video
+          key={film.key}
+          className={`story-video absolute inset-0 w-full h-full object-cover transition-opacity duration-[900ms] ease-out ${
+            film.on ? 'opacity-100' : 'opacity-0'
+          }`}
+          src={film.src}
+          poster={film.poster}
+          muted
+          playsInline
+          preload="auto"
+          disablePictureInPicture
+        />
+      ))}
     </div>
   );
 }
@@ -275,7 +276,11 @@ export default function ScrollStory({ isNight }) {
     () => {
       if (!trackRef.current) return;
 
-      const video = trackRef.current.querySelector('.story-video');
+      // BOTH films (day + night) are seeked to the same normalised time. They
+      // are identical in length, so one scroll position maps to the same moment
+      // in each; that is why toggling the theme is a pure crossfade and never
+      // jumps the quote backwards or forwards.
+      const videos = Array.from(trackRef.current.querySelectorAll('.story-video'));
       const frame = { t: 0 };
 
       // Reduced motion does NOT get a different stage — that was the bug. A
@@ -328,9 +333,11 @@ export default function ScrollStory({ isNight }) {
           t: 1,
           duration: 0.5,
           onUpdate: () => {
-            if (!video || !Number.isFinite(video.duration) || video.duration <= 0) return;
-            const next = frame.t * video.duration;
-            if (Math.abs(video.currentTime - next) > 0.015) video.currentTime = next;
+            for (const v of videos) {
+              if (!Number.isFinite(v.duration) || v.duration <= 0) continue;
+              const next = frame.t * v.duration;
+              if (Math.abs(v.currentTime - next) > 0.015) v.currentTime = next;
+            }
           },
         },
         0.5,
@@ -411,8 +418,10 @@ export default function ScrollStory({ isNight }) {
           <CoupleAct isNight={isNight} />
         </div>
 
-        {/* ---- One header for the whole journey ---- */}
-        <header className="absolute top-0 inset-x-0 z-40 px-4 sm:px-10 py-4 sm:py-6 flex items-center gap-3 pointer-events-none">
+        {/* ---- One header for the whole journey ----
+             Offsets must clear the gold frame (inset-3 on mobile, sm:inset-6),
+             or the monogram rides the border line. 6/12 leaves 12px of air. */}
+        <header className="absolute top-6 left-6 sm:top-10 sm:left-12 z-40 flex items-center gap-3 pointer-events-none">
           <Monogram className="w-[22px] sm:w-7 h-auto shrink-0 drop-shadow-[0_2px_10px_rgba(212,175,55,0.45)]" />
           <div className="text-left">
             <p className="font-cinzel text-[8px] sm:text-[9px] tracking-[0.3em] uppercase text-[#dfba5c] leading-none mb-1">
