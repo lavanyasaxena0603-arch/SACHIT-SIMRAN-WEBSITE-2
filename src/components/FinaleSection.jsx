@@ -64,8 +64,6 @@ const ART_RATIO = ART_H / ART_W;
    the picture — it cut the sheet in half and dragged a gold "leading edge"
    across already-drawn rollers. The reveal is now a rise + settle. */
 const RISE_MS = 1150;
-/* Frame the film reaches if it never reports `ended` — the varmala climax. */
-const HOLD_AT = 3.58 / 8.041667;
 
 /* The printed invitation, in the order it is typeset on the parchment. The
    artwork is a fully typeset sheet, so this copy is what assistive technology
@@ -171,24 +169,17 @@ export default function FinaleSection() {
     // what the user reported — the celebration video never played and the
     // invitation card never appeared — while the still and every static element
     // looked fine, which is why isolated "does it exist" tests kept passing.
-    if (reduce) {
-      // Nothing plays. The palace is already there and the invitation is already
-      // open — the same information, without motion.
-      if (video) {
-        try {
-          video.currentTime = HOLD_AT * (video.duration || 8);
-        } catch {
-          /* metadata may not be ready; the poster covers it */
-        }
-        video.pause();
-      }
-      s.done = true;
-      // No setPhase('hold') here: `phase` was ALREADY initialised to 'hold' by
-      // the useState above when prefers-reduced-motion matched, so this effect
-      // has nothing to change. Setting it again would be a redundant render
-      // (and the react-hooks set-state-in-effect lint rule was right to flag it).
-      return () => clearTimers();
-    }
+    //
+    // WHY THERE IS NO EARLY RETURN HERE ANY MORE
+    // ------------------------------------------
+    // Under reduce the branch used to park the film and bail out, so the
+    // celebration never played at all. But this film is the CHAPTER, not
+    // decoration: a finale that does not play is a missing finale. The
+    // preference is honoured by the motion instead — the card does not rise or
+    // scale (every transition below is `none` when `reduce`), and `phase` starts
+    // at 'hold' so the invitation is already open and readable on the first
+    // paint. The film still runs behind it, muted, exactly once. Nothing moves
+    // for a reduced-motion visitor except the footage they came to see.
 
     const begin = () => {
       if (s.started) return;

@@ -471,25 +471,26 @@ function StorySection({ isNight }) {
       v.playsInline = true;
     }
 
-    /* ---- Reduced motion: complete composition, zero motion, zero hold ---- */
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (reduce) {
-      for (const v of vids) {
-        const park = () => {
-          try {
-            v.pause();
-            v.currentTime = Math.max(0, (v.duration || 0) - 0.05);
-          } catch {
-            /* metadata not ready; nothing to do */
-          }
-        };
-        if (v.readyState >= 1) park();
-        else v.addEventListener('loadedmetadata', park, { once: true });
-      }
-      s.started = true;
-      s.finished = true;
-      return undefined;
-    }
+    /* ---- Reduced motion: still play the FILM, suppress only decoration ----
+
+       THIS BLOCK WAS MAKING THE SITE LOOK BROKEN.
+
+       It used to `pause()` every film and seek it to `duration - 0.05` under
+       `prefers-reduced-motion: reduce`. A visitor whose OS has "Reduce motion"
+       switched on therefore saw: the elephant chapter already parked on its
+       last frame, the finale parked, and — because the reveal tween is also
+       disabled under reduce — every section sitting there with no movement at
+       all. The ONE thing that still worked was the countdown, because
+       CountdownSection is the only section with no reduce branch, so its film
+       played and its dial kept ticking. That is precisely the report: "almost
+       every animation and video stopped working, only the countdown works".
+
+       The distinction that was missing: the films here are CONTENT, not
+       decoration. Parked-at-the-end is not a reduced-motion alternative, it is
+       a disabled chapter. So the film now plays exactly as it does normally —
+       muted, inline, once — while the genuinely decorative motion (the page
+       reveals, the gold motes, the long transitions) still honours the
+       preference. Nobody gets a dead page, and nobody gets gratuitous motion. */
 
     /* ---------------- the hold is now purely presentational ----------------
 
