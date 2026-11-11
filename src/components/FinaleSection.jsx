@@ -12,35 +12,51 @@ import { playSafely, ensurePlaying } from '../lib/videoSwap';
  * against the RSVP above it. It is mounted by <App /> as a sibling of
  * <InvitationScroll /> and <RsvpSection />, so none of those files are touched.
  *
- * THE THREE ACTS
- * --------------
- *   1. palace reveal   the approved still, full-bleed, settling out of the fade
- *   2. varmala         the generated image-to-video clip, played ONCE
- *   3. fireworks       the same clip's climax, which the scroll then enters
+ * THE TWO ACTS, SEQUENCED BY SCROLL
+ * ---------------------------------
+ *   1. celebration     the palace still, then the fireworks film played ONCE,
+ *                      all the way through, while this act owns the screen
+ *   2. invitation      the supplied roll film, revealed only when the visitor
+ *                      scrolls on to the second act
  *
- * THE BACKGROUND IS NEVER REPLACED
- * --------------------------------
- * The still is a permanent base layer. The film fades in over it and stays
- * mounted, and the parchment rises on top of both. At no point does the palace
- * disappear, go black, or hand over to a different page — the whole act happens
- * in one frame, which is the brief's Part 3.
+ * The two acts are two stacked full-height blocks in normal document flow. That
+ * is what makes the sequencing feel like the visitor's decision rather than a
+ * timer: nothing advances until the page is actually scrolled. There is no
+ * `sticky`, no `fixed`, no scroll hijacking and no forced scroll — the act
+ * boundary is simply a scroll position, and scrolling back up returns to the
+ * celebration.
+ *
+ * WHY THE TIMER IS GONE
+ * ---------------------
+ * The previous build started the roll film 700ms after the fireworks began, so
+ * the invitation descended over the celebration while it was still playing and
+ * the finale film was never actually watched. The reported symptom — "let the
+ * final video play properly" — was that auto-advance. The fireworks film now
+ * runs to its own last frame and nothing covers it; the roll only begins when
+ * the visitor scrolls to act 2.
+ *
+ * THE CELEBRATION BACKGROUND IS NEVER REPLACED
+ * -------------------------------------------
+ * The still is a permanent base layer under the film. The film fades in over it
+ * and stays mounted. At no point does the palace disappear or go black.
  *
  * AUTOPLAY
  * --------
- * The clip is muted + playsinline, so it starts on its own. If a browser still
- * refuses, the stage does not stall: a tap target appears and, failing that, the
- * failsafe timer opens the scroll anyway. Nobody is ever stuck looking at a
- * frozen frame with no way forward.
+ * Both clips are muted + playsinline, so they start on their own. If a browser
+ * still refuses the celebration, the stage does not stall: a tap target appears
+ * in act 1. The roll retries silently and keeps its poster if it cannot start,
+ * and because the visitor is on act 2 by then, the chapter has already resolved.
  *
  * NO LOOP, EVER
  * -------------
- * The <video> carries no `loop`. It plays once, ends on its last frame, and the
- * scroll entrance follows. Scrolling back up and down again does not restart it.
+ * Neither <video> carries `loop`. Each plays once and holds its last frame.
+ * Scrolling away and back does not rewind either of them.
  *
  * REDUCED MOTION
  * --------------
- * The film is not played at all. The still is shown, the parchment is already
- * fully open, and every line of text is present. Nothing moves.
+ * Nothing travels. The invitation does not rise or scale — it simply fades in —
+ * and every line of text is present. The footage itself still plays, because
+ * the film is the chapter, not decoration.
  */
 
 const STILL = '/assets/finale/palace-still.webp';
@@ -60,14 +76,9 @@ const FILM_POSTER = '/assets/finale/varmala-poster.jpg';
 const ROLL = '/assets/finale/invitation-roll.mp4';
 const ROLL_POSTER = '/assets/finale/invitation-roll-poster.jpg';
 
-/* Timings. The palace establishes itself first, then the invitation descends
-   over it while the fireworks keep running behind. */
-const ROLL_DELAY_MS = 700;
+/* Only the invitation's own entrance is timed now. Nothing gates the acts on a
+   clock any more — scroll position does that. */
 const RISE_MS = 900;
-const ROLL_MS = 10.0 * 1000;
-/* Nothing may ever strand the visitor: if no `ended` arrives at all, the
-   chapter still resolves. */
-const FAILSAFE_MS = ROLL_DELAY_MS + ROLL_MS + 2400;
 
 /* The printed invitation, in the order it is typeset on the parchment. The
    artwork is a fully typeset sheet, so this copy is what assistive technology
@@ -116,12 +127,27 @@ function GoldMotes() {
   );
 }
 
+/* Grading shared by both acts. Keeps the gold reading warm and the type legible
+   without touching the artwork's own colour. */
+function Grading() {
+  return (
+    <div
+      className="pointer-events-none absolute inset-0 z-10"
+      style={{
+        background:
+          'radial-gradient(120% 78% at 50% 34%, rgba(4,7,17,0) 38%, rgba(4,7,17,0.52) 100%), linear-gradient(to top, rgba(4,7,17,0.78) 0%, rgba(4,7,17,0.12) 34%, rgba(4,7,17,0.42) 100%)',
+      }}
+    />
+  );
+}
+
 export default function FinaleSection() {
   const sectionRef = useRef(null);
+  const act1Ref = useRef(null);
+  const act2Ref = useRef(null);
   const videoRef = useRef(null);
+  const rollRef = useRef(null);
 
-  // 'reveal' -> 'motion' -> 'enter' -> 'hold'
-  //
   // Both of these are read during render from the media query rather than set
   // from an effect: the preference cannot change the decision the chapter makes
   // (whether to play at all), so deriving it up front avoids a second render and
@@ -132,145 +158,118 @@ export default function FinaleSection() {
 
   const [reduce] = useState(prefersReduce);
   const [phase, setPhase] = useState(() => (prefersReduce() ? 'hold' : 'reveal'));
+  const [showRoll, setShowRoll] = useState(false);
   const [needsTap, setNeedsTap] = useState(false);
-  const rollRef = useRef(null);
 
-  const stateRef = useRef({ started: false, timers: [], done: false });
+  // `started` guards the celebration; `rolled` guards the invitation. Both live
+  // in a ref because neither should re-render the tree.
+  const stateRef = useRef({ started: false, rolled: false });
 
-  /* ------------------------------------------------------------ phase engine */
+  /* ------------------------------------------------------------ act engine */
   useEffect(() => {
     const section = sectionRef.current;
+    const act1 = act1Ref.current;
+    const act2 = act2Ref.current;
     const video = videoRef.current;
     // Snapshot the roll element ONCE. Reading `rollRef.current` inside the
     // cleanup is a real bug, not just a lint nit: by teardown the ref can point
-    // at null (or a different node), so the listener we are trying to remove is
-    // never the listener that was added, and the `ended` handler leaks — a
-    // remount then fires it against a dead component.
+    // at null (or a different node), so the state we restore is not the state we
+    // saved.
     const roll = rollRef.current;
     if (!section) return undefined;
 
     const s = stateRef.current;
 
-    const clearTimers = () => {
-      s.timers.forEach(clearTimeout);
-      s.timers = [];
-    };
-    const later = (fn, ms) => {
-      s.timers.push(setTimeout(fn, ms));
-    };
-
-    // The card's entrance, once, and never auto-advancing past `hold`.
-    const openScroll = () => {
-      if (s.done) return;
-      s.done = true;
-      clearTimers();
-      setNeedsTap(false);
-      setPhase('enter');
-      later(() => setPhase('hold'), RISE_MS);
-    };
-
-    // `reduce` is the RESOLVED BOOLEAN, snapshotted in state.
-    //
-    // This previously read `if (prefersReduce)`, testing the FUNCTION instead of
-    // calling it. A function object is always truthy, so the reduced-motion
-    // branch ran for every visitor: the film was parked at HOLD_AT and paused,
-    // `s.done` was set before the IntersectionObserver was ever created, and
-    // `phase` stayed at its initial 'reveal' forever. The result was exactly
-    // what the user reported — the celebration video never played and the
-    // invitation card never appeared — while the still and every static element
-    // looked fine, which is why isolated "does it exist" tests kept passing.
-    //
-    // WHY THERE IS NO EARLY RETURN HERE ANY MORE
-    // ------------------------------------------
-    // Under reduce the branch used to park the film and bail out, so the
-    // celebration never played at all. But this film is the CHAPTER, not
-    // decoration: a finale that does not play is a missing finale. The
-    // preference is honoured by the motion instead — the card does not rise or
-    // scale (every transition below is `none` when `reduce`), and `phase` starts
-    // at 'hold' so the invitation is already open and readable on the first
-    // paint. The film still runs behind it, muted, exactly once. Nothing moves
-    // for a reduced-motion visitor except the footage they came to see.
-
+    // ACT 1 — the palace celebration. Once, muted, inline, from the start.
     const begin = () => {
       if (s.started) return;
       s.started = true;
       setPhase('motion');
-      // ACT 2 — the palace celebration. Once, muted, inline.
       if (video) {
-        video.currentTime = 0;
+        try {
+          video.currentTime = 0;
+        } catch {
+          /* poster-only; play() still works */
+        }
         ensurePlaying(video).then((ok) => {
           // Only after every retry has failed is the tap the honest answer.
           if (!ok) setNeedsTap(true);
         });
       }
-
-      // ACT 3 — the invitation unrolls over it a beat later, so the palace is
-      // already established when the scroll begins its descent.
-      later(startRoll, ROLL_DELAY_MS);
-
-      // Failsafe: if neither `ended` ever arrives, the chapter still resolves.
-      later(openScroll, FAILSAFE_MS);
     };
 
+    // ACT 2 — the invitation unrolls. Triggered by reaching the second act, not
+    // by the clock, so the celebration above is never covered.
     const startRoll = () => {
-      const r = roll;
-      if (!r) return;
-      try {
-        r.currentTime = 0;
-      } catch {
-        /* poster-only; play() still works */
+      if (s.rolled) return;
+      s.rolled = true;
+      setShowRoll(true);
+      if (roll) {
+        try {
+          roll.currentTime = 0;
+        } catch {
+          /* poster-only; play() still works */
+        }
+        ensurePlaying(roll);
       }
-      ensurePlaying(r);
     };
 
-    // The supplied film is what advances the chapter. The fireworks layer has no
-    // `ended` handler: it simply holds its last frame once it finishes.
-    const onEndedRoll = () => openScroll();
-    if (roll) roll.addEventListener('ended', onEndedRoll);
-
-    const io = new IntersectionObserver(
+    // Act 1 owns its own observer: with a 200dvh section, a ratio measured on
+    // the whole section would not reach 50% until most of the celebration had
+    // already scrolled past.
+    const io1 = new IntersectionObserver(
       (entries) => {
         const e = entries[0];
         if (e.isIntersecting && e.intersectionRatio >= 0.5) {
           if (!s.started) begin();
-          else if (!s.done && video && video.paused) {
-            playSafely(video);
-          }
-        } else if (!e.isIntersecting && !s.done && video) {
-          // Scrolled away mid-act: pause, do not restart, let the observer resume.
+          else if (video && video.paused && !video.ended) playSafely(video);
+        }
+
+        if (!e.isIntersecting && video && !video.ended) {
+          // Scrolled away mid-act: pause, never restart. Re-entry resumes from
+          // the same playhead, so the film is not watched from the top twice.
           video.pause();
         }
       },
       { threshold: [0, 0.5, 0.75, 1] },
     );
-    io.observe(section);
+
+    // Act 2 arms the invitation as soon as it is meaningfully on screen. The
+    // threshold is deliberately low: the visitor has decided to move on, so the
+    // film should already be running by the time the sheet is centred.
+    const io2 = new IntersectionObserver(
+      (entries) => {
+        const e = entries[0];
+        if (e.isIntersecting && e.intersectionRatio >= 0.35) startRoll();
+      },
+      { threshold: [0, 0.35, 0.6] },
+    );
+
+    const ro1 = new ResizeObserver(() => ScrollTrigger.refresh());
+
+    io1.observe(act1 || section);
+    if (act2) io2.observe(act2);
+    if (act1) ro1.observe(act1);
 
     return () => {
-      io.disconnect();
-      clearTimers();
-      if (roll) {
-        roll.removeEventListener('ended', onEndedRoll);
-        roll.pause();
-      }
+      io1.disconnect();
+      io2.disconnect();
+      ro1.disconnect();
+      if (roll) roll.pause();
       if (video) video.pause();
     };
     // `reduce` is a useState snapshot taken once at mount, so it can never
     // change and this effect can never re-run. Listing it is still correct: the
-    // branch below reads it, and omitting it would be a stale-closure bug the
-    // moment anyone made the preference live.
+    // reduced-motion branch reads it.
   }, [reduce]);
 
-  // A rotation re-measures the section; the phase machine itself does not restart.
+  // A rotation re-measures the section; the act machine itself does not restart.
   useEffect(() => {
     const id = requestAnimationFrame(() => ScrollTrigger.refresh());
     return () => cancelAnimationFrame(id);
   }, []);
 
-  // The invitation layer is present as soon as the act begins; its own film
-  // supplies the unroll, this only adds the cinematic rise into frame.
-  const showRoll = phase !== 'reveal';
-  const showingFilm = phase === 'motion' || phase === 'enter' || phase === 'hold';
-
+  const filmVisible = phase !== 'reveal';
   const ease = 'cubic-bezier(.18,.78,.18,1)';
 
   return (
@@ -278,28 +277,29 @@ export default function FinaleSection() {
       ref={sectionRef}
       id="finale"
       aria-label="The royal wedding finale"
-      className="relative min-h-[100dvh] w-full"
+      className="relative w-full"
     >
-      {/* NO `sticky`, NO `fixed` — DELIBERATELY.
-
-          This used to be `h-[100dvh]` wrapping a `sticky top-0 h-[100dvh]`
-          child. A sticky element inside a parent of exactly the same height has
-          zero travel, so it did not pin gradually: the instant the section's top
-          edge reached the viewport top, the whole block was welded in place and
-          the visitor was looking at a full-bleed, already-cropped background
-          while the RSVP above was still leaving. That is the "background gets
-          stuck too early, before I have entered the finale" report.
-
-          The finale now participates in normal document flow like every other
-          chapter: it scrolls up from below, its background is just a background,
-          and it cannot pin anything. Nothing traps the scroll. */}
-      <div className="relative h-[100dvh] w-full overflow-hidden bg-[#04070f]">
-        {/* ACT 1 — the approved palace still. This layer never unmounts, so the
+      {/* ------------------------------------------------------------------ *
+       * ACT 1 — THE CELEBRATION
+       *
+       * NO `sticky`, NO `fixed` — DELIBERATELY.
+       *
+       * This used to be `h-[100dvh]` wrapping a `sticky top-0 h-[100dvh]`
+       * child. A sticky element inside a parent of exactly the same height has
+       * zero travel, so it did not pin gradually: the instant the section's top
+       * edge reached the viewport top, the whole block was welded in place.
+       * That is the "background gets stuck too early" report.
+       *
+       * Each act is now its own plain, full-height block in normal flow. They
+       * scroll past like any other chapter, and they cannot pin anything.
+       * ------------------------------------------------------------------ */}
+      <div ref={act1Ref} className="relative h-[100dvh] w-full overflow-hidden bg-[#04070f]">
+        {/* The approved palace still. This layer never unmounts, so the
             background can never go black or be replaced.
 
-            It stays `object-cover` on purpose: it is the FILL. Whatever letterbox
-            the filmed frame needs above and below is painted with this same
-            palace, so the extra space reads as depth rather than as blank bars. */}
+            It stays `object-cover` on purpose: it is the FILL. Whatever
+            letterbox the filmed frame needs above and below is painted with
+            this same palace, so the extra space reads as depth, not blank bars. */}
         <picture>
           <source srcSet={STILL} type="image/webp" />
           <img
@@ -310,7 +310,8 @@ export default function FinaleSection() {
           />
         </picture>
 
-        {/* ACT 2 — the varmala exchange and the fireworks. Muted, inline, ONCE.
+        {/* THE CELEBRATION FILM. Muted, inline, ONCE, and now actually watched:
+            nothing is layered over it, so it runs to its own last frame.
 
             `object-contain`, NOT cover.
 
@@ -325,7 +326,7 @@ export default function FinaleSection() {
         <video
           ref={videoRef}
           className={`absolute inset-0 h-full w-full object-contain transition-opacity duration-[900ms] ease-out ${
-            showingFilm && phase !== 'reveal' ? 'opacity-100' : 'opacity-0'
+            filmVisible ? 'opacity-100' : 'opacity-0'
           }`}
           src={FILM}
           poster={FILM_POSTER}
@@ -333,21 +334,54 @@ export default function FinaleSection() {
           playsInline
           preload="auto"
           disablePictureInPicture
+          aria-label="Fireworks over the palace"
         />
 
-        {/* Grading. Keeps the gold reading warm and the type legible without
-            touching the artwork's own colour. */}
-        <div
-          className="pointer-events-none absolute inset-0 z-10"
-          style={{
-            background:
-              'radial-gradient(120% 78% at 50% 34%, rgba(4,7,17,0) 38%, rgba(4,7,17,0.52) 100%), linear-gradient(to top, rgba(4,7,17,0.78) 0%, rgba(4,7,17,0.12) 34%, rgba(4,7,17,0.42) 100%)',
-          }}
-        />
-
+        <Grading />
         <GoldMotes />
 
-        {/* ACT 3 — THE INVITATION, as the couple supplied it.
+        {/* Honest fallback if a browser refused the muted autoplay. Subtle, and
+            only ever present during the act it belongs to. */}
+        {needsTap && (
+          <button
+            type="button"
+            onClick={() => {
+              const v = videoRef.current;
+              setNeedsTap(false);
+              if (v) playSafely(v);
+            }}
+            className="font-cinzel absolute inset-0 z-40 flex flex-col items-center justify-center gap-3 bg-[#04070f]/45 text-[#f7d58a] backdrop-blur-[2px]"
+          >
+            <span className="flex h-14 w-14 items-center justify-center rounded-full border border-[#d4af37]/60 bg-[#050914]/70 shadow-[0_0_30px_rgba(212,175,55,0.35)]">
+              <span className="ml-1 block h-0 w-0 border-y-[9px] border-l-[14px] border-y-transparent border-l-current" />
+            </span>
+            <span className="text-[10px] tracking-[0.26em] uppercase">Begin The Celebration</span>
+          </button>
+        )}
+      </div>
+
+      {/* ------------------------------------------------------------------ *
+       * ACT 2 — THE INVITATION
+       *
+       * The visitor reaches this by scrolling on from the celebration. Nothing
+       * pulls them here and nothing stops them leaving.
+       * ------------------------------------------------------------------ */}
+      <div ref={act2Ref} className="relative h-[100dvh] w-full overflow-hidden bg-[#04070f]">
+        <picture>
+          <source srcSet={STILL} type="image/webp" />
+          <img
+            src={STILL_FALLBACK}
+            alt=""
+            aria-hidden="true"
+            className="absolute inset-0 h-full w-full object-cover"
+            decoding="async"
+          />
+        </picture>
+
+        <Grading />
+        <GoldMotes />
+
+        {/* THE INVITATION, as the couple supplied it.
 
             This is their 720x1280 film, played exactly as delivered. It carries
             its own unroll, so there is not one line of clip-path, scaleY or
@@ -373,11 +407,16 @@ export default function FinaleSection() {
         >
           <video
             ref={rollRef}
-            className="h-auto w-auto max-w-[94vw] object-contain"
-            style={{
-              height: 'min(88dvh, 900px)',
-              filter: 'drop-shadow(0 26px 54px rgba(0,0,0,0.70))',
-            }}
+            /* `max-h`/`max-w` with intrinsic `auto` sizing, NOT a fixed height.
+               A fixed `height: min(88dvh,900px)` plus `max-w-[94vw]` produced a
+               box whose ratio did not match the film's: measured 367x743
+               (0.494) for a 720x1280 (0.563) source on a 390px phone, so
+               `object-contain` letterboxed inside it and the drop-shadow halo
+               sat off the sheet. Constraining both maxima instead lets the box
+               take the video's own ratio at any viewport, so the shadow hugs the
+               artwork and nothing is ever cropped. */
+            className="block h-auto w-auto max-h-[88dvh] max-w-[94vw] object-contain"
+            style={{ filter: 'drop-shadow(0 26px 54px rgba(0,0,0,0.70))' }}
             src={ROLL}
             poster={ROLL_POSTER}
             muted
@@ -404,39 +443,6 @@ export default function FinaleSection() {
           <p>Saturday, 12 December 2026 — Welcome of Baraat 8:00 P.M., Dinner 9:00 P.M.</p>
           <p>Sunday, 13 December 2026 — Vidaai, Taroon Ki Chaon Mein.</p>
         </div>
-
-        {/* Honest fallback if a browser refused the muted autoplay. Subtle, and
-            only ever present during the act it belongs to. */}
-        {needsTap && (
-          <button
-            type="button"
-            onClick={() => {
-              const v = videoRef.current;
-              setNeedsTap(false);
-              if (v) playSafely(v);
-            }}
-            className="font-cinzel absolute inset-0 z-40 flex flex-col items-center justify-center gap-3 bg-[#04070f]/45 text-[#f7d58a] backdrop-blur-[2px]"
-          >
-            <span className="flex h-14 w-14 items-center justify-center rounded-full border border-[#d4af37]/60 bg-[#050914]/70 shadow-[0_0_30px_rgba(212,175,55,0.35)]">
-              <span className="ml-1 block h-0 w-0 border-y-[9px] border-l-[14px] border-y-transparent border-l-current" />
-            </span>
-            <span className="text-[10px] tracking-[0.26em] uppercase">Begin The Celebration</span>
-          </button>
-        )}
-
-        {/* THE FINAL HOLD — deliberately empty of text.
-
-            The open parchment IS the invitation: every name, date, timing,
-            family line and RSVP name is already typeset on it and readable at
-            rest. The previous version printed a timings bar along the bottom of
-            the viewport, which repeated the sheet's own "Welcome of Baraat /
-            Dinner" rows and its date in a second, smaller voice — the visitor
-            read the same information twice, at two different sizes, in one
-            frame. It has been removed so there is exactly one final
-            composition: the artwork, and nothing competing with it.
-
-            The invitation still stays open indefinitely. Nothing here closes,
-            replays or advances it. */}
       </div>
     </section>
   );
