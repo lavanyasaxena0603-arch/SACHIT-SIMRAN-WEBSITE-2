@@ -195,7 +195,7 @@ export default function App() {
                 left completely untouched. It is a sibling, so it scrolls in
                 from below like every other chapter and the document stays one
                 continuous sheet. */}
-            <RsvpSection />
+            <RsvpSection isNight={isNight} />
           </div>
         </>
       )}

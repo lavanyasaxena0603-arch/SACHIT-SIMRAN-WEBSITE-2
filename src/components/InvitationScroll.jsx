@@ -2,8 +2,9 @@ import { useRef, useState, useEffect } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useGSAP } from '@gsap/react';
-import { Heart, Sparkles, ChevronDown, Calendar, Clock, MapPin, Navigation } from 'lucide-react';
+import { Heart, Sparkles, ChevronDown, Calendar, Clock, MapPin, Navigation, Play } from 'lucide-react';
 import { useCountdown } from '../lib/countdown';
+import { swapThemeVideo, playSafely } from '../lib/videoSwap';
 
 gsap.registerPlugin(ScrollTrigger, useGSAP);
 
@@ -335,71 +336,372 @@ function CoupleSection({ isNight }) {
 
 /* ------------------------------------------------------------- CHAPTER 3 ---- */
 /**
- * OUR STORY — the one chapter where the supplied film carries the words.
+ * OUR STORY — the Elephant Welcome.
  *
- * The footage typewrites the quote, sways the elephants and drops the petals as
- * its playhead advances, so this chapter is scrubbed by a ScrollTrigger scoped
- * to THIS SECTION ONLY. It is deliberately not site-wide: the document scrolls
- * normally either side of it and only this stage pins, which keeps the site a
- * scrolled document rather than one long video timeline.
+ * This chapter used to be SCRUBBED: a 240vh track drove the film's playhead from
+ * scroll progress, so the elephants only walked while the visitor kept scrolling
+ * and the quotation only finished appearing if they scrolled far enough. That is
+ * the behaviour the brief rejects. It asks the guest to perform the animation,
+ * and an older visitor can easily scroll straight past without ever seeing the
+ * complete composition — and they would never know they had missed it.
  *
- * Both day and night films are mounted from first paint and seeked to the same
- * normalised time, so the theme toggle is a pure opacity crossfade that cannot
- * move the playhead — the quote never jumps backwards or forwards.
+ * It is now a SELF-PLAYING CINEMATIC INTERLUDE:
  *
- * Responsive: the film IS the composition at every width, so it stays
- * full-bleed and object-cover. Nothing is re-columned here — there is nothing
- * to column.
+ *     scroll in once  ->  the film starts on its own and plays to the end in
+ *                         real time  ->  the final composition is held  ->  the
+ *                         next gesture continues the journey.
+ *
+ * The film is PLAYED, never scrubbed. Nothing about it is tied to scroll
+ * progress any more, which is what makes "an accidental scroll cannot skip or
+ * partially reveal the scene" true by construction rather than something we
+ * police gesture by gesture.
+ *
+ * THE SHORT HOLD
+ * --------------
+ * A hold covers the play window so an absent-minded swipe cannot carry the
+ * visitor past a scene that is still unfolding. It is deliberately one-way and
+ * always escapable, because this chapter must never become a trap:
+ *
+ *   - scrolling UP always releases it immediately (anyone may leave at any time)
+ *   - a "Continue" control is on screen for the whole hold
+ *   - a failsafe timer releases it after duration + 3s, so a film that errors
+ *     or never fires `ended` cannot strand anybody
+ *   - if the browser refuses to autoplay, the hold is never engaged at all
+ *
+ * DAY / NIGHT
+ * -----------
+ * Both films are mounted from first paint. A theme change mid-scene goes through
+ * `swapThemeVideo`, which freezes the outgoing playhead, seeks the incoming film
+ * to that exact timestamp, WAITS for the seek to land, starts it, and only then
+ * mutes the old layer. So toggling continues from the same frame instead of
+ * restarting the scene or jumping to an unrelated one.
+ *
+ * REDUCED MOTION
+ * --------------
+ * No autoplay and no hold at all. The film is parked on its last frame, which
+ * carries the complete quotation and the full decoration, so exactly the same
+ * information is delivered with no animation and the visitor scrolls past at
+ * whatever pace they like. That is a usable alternative, not a disabled state.
  */
+const STORY_ACTIVE_RATIO = 0.6;
+
 function StorySection({ isNight }) {
-  const ref = useRef(null);
+  const sectionRef = useRef(null);
+  const stageRef = useRef(null);
+  const dayRef = useRef(null);
+  const nightRef = useRef(null);
 
-  useGSAP(
-    () => {
-      const stage = ref.current;
-      if (!stage) return undefined;
+  // The playback machine lives in a ref: none of this should re-render the tree
+  // while a film is playing, and the observers are registered exactly once.
+  const state = useRef({
+    started: false,
+    finished: false,
+    holding: false,
+    pinY: 0,
+    settleUntil: 0,
+    timer: 0,
+    // Last scroll position we observed, so the hold can tell which way the
+    // visitor is travelling before it decides anything.
+    lastY: 0,
+    // Set for the single scroll event our own clamp produces, so the guard
+    // does not mistake its own correction for the visitor moving.
+    clamping: false,
+  });
+  const prevNight = useRef(isNight);
 
-      const videos = Array.from(stage.querySelectorAll('.story-video'));
-      if (!videos.length) return undefined;
+  // Handles for the markup's controls. Set inside the effect below.
+  const startRef = useRef(null);
+  const skipRef = useRef(null);
 
-      const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      const frame = { t: 0 };
+  // Only these affect markup, and only a couple of times per visit.
+  const [ui, setUi] = useState({ needsTap: false, failed: false });
+  const [holding, setHolding] = useState(false);
 
-      const apply = () => {
-        for (const v of videos) {
-          if (!Number.isFinite(v.duration) || v.duration <= 0) continue;
-          const next = frame.t * v.duration;
-          if (Math.abs(v.currentTime - next) > 0.015) v.currentTime = next;
+  const themeVideo = () => (prevNight.current ? nightRef.current : dayRef.current);
+
+  /* ------------------------------------------------------------------ *
+   * DAY / NIGHT — same playhead, no restart
+   * ------------------------------------------------------------------ */
+  useEffect(() => {
+    if (prevNight.current === isNight) return;
+    prevNight.current = isNight;
+
+    const from = isNight ? dayRef.current : nightRef.current;
+    const to = isNight ? nightRef.current : dayRef.current;
+    if (!to) return;
+
+    const s = state.current;
+
+    // Finished: park the incoming layer on ITS final frame so the crossfade
+    // holds the same completed composition instead of jumping to the middle of
+    // a scene the visitor has already watched to the end.
+    if (s.finished) {
+      const end = Number.isFinite(to.duration) && to.duration > 0 ? to.duration - 0.05 : 0;
+      try {
+        to.pause();
+        to.currentTime = end;
+      } catch {
+        /* a film that has not loaded yet simply stays on its poster */
+      }
+      return;
+    }
+
+    // Mid-scene: hand the exact timestamp across. swapThemeVideo pauses the
+    // outgoing layer, seeks, waits for the seek, plays the incoming one, then
+    // mutes the old one — so the two layers never both play at once and there
+    // is no gap in the crossfade.
+    if (s.started) swapThemeVideo({ fromVideo: from, toVideo: to });
+  }, [isNight]);
+
+  /* ------------------------------------------------------------------ *
+   * PLAYBACK MACHINE — observers, hold, autoplay
+   * ------------------------------------------------------------------ */
+  useEffect(() => {
+    const section = sectionRef.current;
+    const stage = stageRef.current;
+    if (!section || !stage) return undefined;
+
+    const s = state.current;
+    const vids = [dayRef.current, nightRef.current].filter(Boolean);
+    for (const v of vids) {
+      // Muted + playsInline is the only combination browsers autoplay without
+      // asking. Both are set here as well as in the markup so a theme swap
+      // cannot drop them.
+      v.muted = true;
+      v.playsInline = true;
+    }
+
+    /* ---- Reduced motion: complete composition, zero motion, zero hold ---- */
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduce) {
+      for (const v of vids) {
+        const park = () => {
+          try {
+            v.pause();
+            v.currentTime = Math.max(0, (v.duration || 0) - 0.05);
+          } catch {
+            /* metadata not ready; nothing to do */
+          }
+        };
+        if (v.readyState >= 1) park();
+        else v.addEventListener('loadedmetadata', park, { once: true });
+      }
+      s.started = true;
+      s.finished = true;
+      return undefined;
+    }
+
+    /* ---------------- the scroll hold ---------------- */
+    let touchY = 0;
+
+    const onWheel = (e) => {
+      if (!s.holding) return;
+      // Forward only. Backward scrolling is always allowed, so leaving the
+      // scene upward is never blocked.
+      if (e.deltaY > 0) e.preventDefault();
+    };
+
+    const onTouchStart = (e) => {
+      touchY = e.touches[0] ? e.touches[0].clientY : 0;
+    };
+
+    const onTouchMove = (e) => {
+      if (!s.holding) return;
+      const t = e.touches[0];
+      if (!t) return;
+      // Finger travelling UP the screen = the page moving down = forward.
+      if (touchY - t.clientY > 0) e.preventDefault();
+    };
+
+    const onKeyDown = (e) => {
+      if (!s.holding) return;
+      if (e.key === 'ArrowDown' || e.key === 'PageDown' || e.key === ' ' || e.key === 'End') {
+        e.preventDefault();
+      }
+    };
+
+    const onScrollGuard = () => {
+      if (!s.holding) return;
+
+      const y = window.scrollY;
+
+      // A scroll WE caused (the clamp below, or the settle snap). Record it and
+      // decide nothing, or the clamp would read its own correction as the
+      // visitor moving and release the hold instantly.
+      if (s.clamping) {
+        s.clamping = false;
+        s.lastY = y;
+        return;
+      }
+
+      if (Date.now() < s.settleUntil) {
+        s.lastY = y;
+        return;
+      }
+
+      // Moving UP always wins. Reading is free to abandon the scene at any
+      // moment, and no gesture of ours may keep them in it.
+      if (y < s.lastY) {
+        s.lastY = y;
+        releaseHold();
+        return;
+      }
+
+      s.lastY = y;
+      if (y > s.pinY + 1) {
+        s.clamping = true;
+        window.scrollTo(0, s.pinY);
+      }
+    };
+
+    const releaseHold = () => {
+      if (!s.holding) return;
+      s.holding = false;
+      setHolding(false);
+      window.removeEventListener('wheel', onWheel);
+      window.removeEventListener('touchstart', onTouchStart);
+      window.removeEventListener('touchmove', onTouchMove);
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('scroll', onScrollGuard);
+    };
+
+    const engageHold = () => {
+      if (s.holding) return;
+
+      // The stage is exactly one viewport tall, so "pinned" means the section's
+      // top is at the viewport's top. Anything else is snapped into place, and
+      // the guard waits for that settle before it starts clamping.
+      s.pinY = Math.max(0, Math.round(section.getBoundingClientRect().top + window.scrollY));
+      s.settleUntil = Date.now() + 460;
+      if (Math.abs(window.scrollY - s.pinY) > 1) {
+        window.scrollTo({ top: s.pinY, left: 0, behavior: 'smooth' });
+      }
+
+      s.holding = true;
+      setHolding(true);
+      window.addEventListener('wheel', onWheel, { passive: false });
+      window.addEventListener('touchstart', onTouchStart, { passive: true });
+      window.addEventListener('touchmove', onTouchMove, { passive: false });
+      window.addEventListener('keydown', onKeyDown);
+      window.addEventListener('scroll', onScrollGuard, { passive: true });
+    };
+
+    /* ---------------- start / finish ---------------- */
+    const finish = () => {
+      clearTimeout(s.timer);
+      if (s.finished) return;
+      s.finished = true;
+      releaseHold();
+      // No navigation, no auto-advance: the last frame simply stays on screen
+      // until the visitor scrolls on.
+    };
+
+    const begin = async () => {
+      if (s.started || s.finished) return;
+      s.started = true;
+
+      const v = themeVideo();
+      if (!v) return;
+
+      try {
+        v.currentTime = 0; // always from the correct beginning
+      } catch {
+        /* a poster-only state cannot seek; play() still works */
+      }
+
+      const ok = await playSafely(v);
+      if (!ok) {
+        // Autoplay refused (or the file failed): hand over to a real control
+        // rather than leaving a frozen frame with no explanation.
+        s.started = false;
+        setUi({ needsTap: true, failed: false });
+        return;
+      }
+
+      setUi((u) => (u.needsTap || u.failed ? { needsTap: false, failed: false } : u));
+      engageHold();
+
+      const dur = Number.isFinite(v.duration) && v.duration > 0 ? v.duration : 14;
+      clearTimeout(s.timer);
+      s.timer = setTimeout(finish, (dur + 3) * 1000);
+    };
+
+    const skip = () => {
+      const v = themeVideo();
+      if (v) {
+        const end = Number.isFinite(v.duration) && v.duration > 0 ? v.duration - 0.05 : 0;
+        try {
+          v.currentTime = end;
+          v.pause();
+        } catch {
+          /* ignore */
         }
-      };
+      }
+      finish();
+    };
 
-      const st = ScrollTrigger.create({
-        trigger: stage,
-        start: 'top top',
-        end: 'bottom bottom',
-        scrub: reduce ? true : 0.5,
-        invalidateOnRefresh: true,
-        onUpdate: (self) => {
-          frame.t = self.progress;
-          apply();
-        },
-      });
+    startRef.current = begin;
+    skipRef.current = skip;
 
-      return () => st.kill();
-    },
-    { scope: ref },
-  );
+    /* ---------------- events ---------------- */
+    const onEnded = (e) => {
+      // Ignore the hidden theme layer: only the visible film may finish the scene.
+      if (e.target !== themeVideo()) return;
+      finish();
+    };
+    for (const v of vids) v.addEventListener('ended', onEnded);
+
+    const io = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        const v = themeVideo();
+
+        if (entry.isIntersecting && entry.intersectionRatio >= STORY_ACTIVE_RATIO) {
+          if (!s.started) {
+            begin();
+          } else if (!s.finished && v && v.paused) {
+            // Returning to the chapter resumes where it was paused. It does not
+            // restart, and it does not replay from zero.
+            playSafely(v);
+            engageHold();
+          }
+          return;
+        }
+
+        if (!entry.isIntersecting && !s.finished) {
+          // Left the stage (scrolled up past it). Pause and let go.
+          if (v) v.pause();
+          releaseHold();
+        }
+      },
+      { threshold: [0, 0.5, STORY_ACTIVE_RATIO, 1] },
+    );
+    io.observe(stage);
+
+    return () => {
+      io.disconnect();
+      clearTimeout(s.timer);
+      releaseHold();
+      for (const v of vids) {
+        v.removeEventListener('ended', onEnded);
+        v.pause();
+      }
+      startRef.current = null;
+      skipRef.current = null;
+    };
+  }, []);
 
   return (
-    <section ref={ref} id="story" className="relative w-full" style={{ height: '240vh' }}>
-      <div className="sticky top-0 h-[100dvh] w-full overflow-hidden">
+    <section ref={sectionRef} id="story" className="relative w-full" style={{ height: '100dvh' }}>
+      <div ref={stageRef} className="sticky top-0 h-[100dvh] w-full overflow-hidden">
         {[
-          { key: 'day', src: STORY_DAY, poster: STORY_POSTER, on: !isNight },
-          { key: 'night', src: STORY_NIGHT, poster: STORY_NIGHT_POSTER, on: isNight },
+          { key: 'day', src: STORY_DAY, poster: STORY_POSTER, on: !isNight, ref: dayRef },
+          { key: 'night', src: STORY_NIGHT, poster: STORY_NIGHT_POSTER, on: isNight, ref: nightRef },
         ].map((film) => (
           <video
             key={film.key}
-            className={`story-video absolute inset-0 h-full w-full object-cover transition-opacity duration-[900ms] ease-out ${
+            ref={film.ref}
+            className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-[900ms] ease-out ${
               film.on ? 'opacity-100' : 'opacity-0'
             }`}
             src={film.src}
@@ -410,6 +712,31 @@ function StorySection({ isNight }) {
             disablePictureInPicture
           />
         ))}
+
+        {/* Only reachable if the browser refused to autoplay, or the file died.
+            Subtle, centred, and it is the only way the scene can stall. */}
+        {ui.needsTap && (
+          <button
+            onClick={() => startRef.current?.()}
+            className="font-cinzel absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-[#04070f]/55 text-[#f7d58a] backdrop-blur-[2px]"
+          >
+            <span className="flex h-14 w-14 items-center justify-center rounded-full border border-[#d4af37]/60 bg-[#050914]/70 shadow-[0_0_30px_rgba(212,175,55,0.35)]">
+              <Play className="ml-0.5 h-5 w-5" fill="currentColor" />
+            </span>
+            <span className="text-[10px] tracking-[0.26em] uppercase">Play The Scene</span>
+          </button>
+        )}
+
+        {/* The escape hatch. Present for the whole hold, tiny, and never in the
+            way of the composition. */}
+        {holding && !ui.needsTap && (
+          <button
+            onClick={() => skipRef.current?.()}
+            className="font-sans-clean safe-right absolute bottom-[calc(1.25rem+env(safe-area-inset-bottom,0px))] z-20 rounded-full border border-[#d4af37]/35 bg-[#050914]/70 px-4 py-2 text-[9px] tracking-[0.22em] uppercase text-[#dfba5c] backdrop-blur-md transition-colors active:bg-[#d4af37]/15"
+          >
+            Continue
+          </button>
+        )}
       </div>
     </section>
   );

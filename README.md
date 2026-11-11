@@ -96,6 +96,63 @@ fading the entrance out, so there is no moment where the only opaque layer is go
 
 ---
 
+## The Elephant Welcome — a self-playing interlude
+
+Chapter 3 (`#story`) used to be **scrubbed**: a 240vh track drove the film's playhead
+from scroll progress. The elephants only walked while the visitor kept scrolling, and
+the quotation only finished appearing if they scrolled far enough. That asks the guest
+to *perform* the animation, and anyone who scrolls briskly can pass the scene without
+ever seeing the complete composition — without knowing they missed it.
+
+It is now a **self-playing cinematic interlude**:
+
+```
+scroll in once -> the film starts on its own and plays in real time
+              -> the final composition is held
+              -> the next gesture continues the journey
+```
+
+The section is exactly `100dvh` and the film is **played, never scrubbed**. Nothing is
+tied to scroll progress any more, so "an accidental scroll cannot skip or partially
+reveal the scene" is true by construction rather than something policed gesture by
+gesture. The film is `muted` + `playsInline` (the only combination browsers autoplay
+without asking), the active layer is chosen by theme, and only one layer ever plays.
+
+### The hold
+
+A short hold covers the play window so an absent-minded swipe cannot carry the visitor
+past a scene still unfolding. It is **one-way and always escapable**, because this
+chapter must never become a trap:
+
+| Escape | Behaviour |
+|---|---|
+| Scroll **up** | Releases immediately — anyone may leave at any time |
+| **Continue** pill | On screen for the whole hold, jumps to the last frame |
+| Failsafe timer | Releases at `duration + 3s`, so a stalled film cannot strand anyone |
+| Autoplay refused | Hold never engages; a **Play The Scene** control appears instead |
+
+Technically the hold cancels forward `wheel` / `touchmove` / `ArrowDown`/`Space` at the
+source and clamps forward scroll back to the section's top. Upward movement is never
+intercepted. A `clamping` flag stops the guard mistaking its own correction for the
+visitor moving.
+
+### Day / Night during playback
+
+`swapThemeVideo` freezes the outgoing playhead, seeks the incoming film to that exact
+timestamp, **waits for the seek to land**, starts it, and only then mutes the old layer —
+so toggling continues from the same frame. Measured drift on a mid-playback switch:
+**+1.84s of ordinary playback time**, with no restart and no jump to an unrelated frame.
+If the scene has already finished, the incoming layer parks on *its* final frame so the
+crossfade holds the same completed composition.
+
+### Reduced motion
+
+No autoplay and no hold at all: the film is parked on its last frame, which carries the
+complete quotation and full decoration. Verified `t = 9.95 / 10.00`, `paused: true`, and
+scrolling completely unaffected. Same information, no animation.
+
+---
+
 ## Day / Night
 
 One global toggle, rendered once by `GlobalControls` above every scene. `isNight` lives
@@ -171,9 +228,23 @@ and the golden thread rail.
 
 `src/components/RsvpSection.jsx`, after the seven chapters, in the same normal document
 flow. Built on the supplied Mughal artwork (the warm ivory `#F7EBDD` of the arch, the
-antique gold `#A87932` of the latticework), rendered as a lazy `<picture>` with a 492 KB
-WebP and the 3.4 MB PNG as fallback. Optimised independently for desktop, tablet and
-portrait phone — **rotation is never required to answer**.
+antique gold `#A87932` of the latticework). Optimised independently for desktop, tablet
+and portrait phone — **rotation is never required to answer**.
+
+**Day and night artwork.** Both layers are mounted and crossfade in place, exactly like
+the chapter backdrops above, so toggling the theme here cannot reflow the section or move
+the form being filled in:
+
+| Mode | Artwork | WebP | PNG |
+|---|---|---|---|
+| Day | `invitation-background.*` (warm parchment arch) | 502 KB | 3.5 MB |
+| Night | `night-background.*` (celestial indigo, moon, lanterns, songbirds) | 605 KB | 3.7 MB |
+
+Each is a real `<img>` in a `<picture>` with `loading="lazy"` + `decoding="async"`, so the
+browser takes the WebP rather than the PNG and only fetches it when the guest reaches the
+section. The scrims are paired, not averaged: the light parchment needs a heavier warm
+wash to hold the gold type, while the deep indigo needs far less so the moon and lanterns
+stay legible behind the letter.
 
 Validation is real (name >= 2 chars, attendance required, and when accepting, 1-10 guests
 plus at least one chosen event). Declining collapses the guest count and event pickers to

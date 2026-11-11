@@ -85,7 +85,7 @@ function FieldError({ id, children }) {
   );
 }
 
-export default function RsvpSection() {
+export default function RsvpSection({ isNight = false }) {
   const [name, setName] = useState('');
   const [attendance, setAttendance] = useState('');
   const [guests, setGuests] = useState('2');
@@ -165,26 +165,63 @@ export default function RsvpSection() {
 
   return (
     <section id="rsvp" className="relative w-full overflow-hidden bg-[#1a1410]">
-      {/* The supplied invitation artwork, behind the letter.
-          Rendered as a real <img> in a <picture>, not a CSS background, so the
-          browser can choose the WebP (492 KB) over the PNG (3.4 MB) and so it
-          can be lazily fetched only when the guest reaches this section —
-          `loading="lazy"` + `decoding="async"`. A background-image would have
-          blocked first paint on a section nobody has scrolled to yet. */}
-      <div className="absolute inset-0 overflow-hidden" aria-hidden="true">
-        <picture>
-          <source srcSet="/assets/rsvp/invitation-background.webp" type="image/webp" />
-          <img
-            src="/assets/rsvp/invitation-background.png"
-            alt=""
-            loading="lazy"
-            decoding="async"
-            className="h-full w-full object-cover object-center"
-          />
-        </picture>
+      {/* The supplied artwork, behind the letter — DAY and NIGHT.
+          Both layers are mounted and crossfade in place, exactly like the
+          chapter backdrops above, so toggling the theme here cannot reflow the
+          section or move the form the guest is filling in.
+
+          Each is a real <img> inside a <picture>, not a CSS background, so the
+          browser takes the WebP (502 KB day / 605 KB night) instead of the PNG
+          (3.5 MB / 3.7 MB) and fetches it only when the guest reaches this
+          section — `loading="lazy"` + `decoding="async"`. A background-image
+          would have blocked first paint on a section nobody has scrolled to. */}
+      {[
+        { key: 'day', webp: '/assets/rsvp/invitation-background.webp', png: '/assets/rsvp/invitation-background.png', on: !isNight },
+        { key: 'night', webp: '/assets/rsvp/night-background.webp', png: '/assets/rsvp/night-background.png', on: isNight },
+      ].map((art) => (
+        <div
+          key={art.key}
+          className={`absolute inset-0 overflow-hidden transition-opacity duration-[900ms] ease-linear ${
+            art.on ? 'opacity-100' : 'opacity-0'
+          }`}
+          aria-hidden="true"
+        >
+          <picture>
+            <source srcSet={art.webp} type="image/webp" />
+            <img
+              src={art.png}
+              alt=""
+              loading="lazy"
+              decoding="async"
+              className="h-full w-full object-cover object-center"
+            />
+          </picture>
+        </div>
+      ))}
+
+      {/* Scrims. The day parchment is light and needs a heavier warm wash to
+          hold the gold type; the night artwork is already deep indigo, so it
+          needs far less and the moon and lanterns stay legible behind the
+          letter. Two sets, crossfading with the art, rather than one average
+          overlay that would flatten both. */}
+      <div
+        className={`absolute inset-0 transition-opacity duration-[900ms] ease-linear ${
+          isNight ? 'opacity-0' : 'opacity-100'
+        }`}
+        aria-hidden="true"
+      >
+        <div className="absolute inset-0 bg-gradient-to-b from-[#120d09]/75 via-[#1a1410]/55 to-[#120d09]/85" />
+        <div className="absolute inset-0 hidden lg:block lg:bg-[radial-gradient(ellipse_at_center,transparent_28%,rgba(18,13,9,0.55)_72%)]" />
       </div>
-      <div className="absolute inset-0 bg-gradient-to-b from-[#120d09]/75 via-[#1a1410]/55 to-[#120d09]/85" />
-      <div className="absolute inset-0 hidden lg:block lg:bg-[radial-gradient(ellipse_at_center,transparent_28%,rgba(18,13,9,0.55)_72%)]" />
+      <div
+        className={`absolute inset-0 transition-opacity duration-[900ms] ease-linear ${
+          isNight ? 'opacity-100' : 'opacity-0'
+        }`}
+        aria-hidden="true"
+      >
+        <div className="absolute inset-0 bg-gradient-to-b from-[#03060e]/70 via-[#071022]/45 to-[#03060e]/82" />
+        <div className="absolute inset-0 hidden lg:block lg:bg-[radial-gradient(ellipse_at_center,transparent_30%,rgba(3,6,14,0.6)_74%)]" />
+      </div>
 
       <div className="relative z-10 mx-auto w-full max-w-3xl safe-pad-x py-[clamp(3rem,10dvh,6rem)]">
         {/* ---------------- THE LETTER ---------------- */}
