@@ -37,6 +37,7 @@ const PALACE_DAY = '/assets/couple/palace-day.jpg';
 const PALACE_NIGHT = '/assets/couple/palace-night.jpg';
 const STORY_VIDEO = '/assets/scene5/scroll-story-scrub.mp4';
 const STORY_POSTER = '/assets/scene5/story-poster.jpg';
+const STORY_NIGHT = '/assets/scene5/story-night.jpg';
 
 /**
  * One backdrop = a day plate and a night plate stacked, crossfading on the
@@ -149,29 +150,36 @@ function WelcomeAct() {
  */
 function CoupleAct({ isNight }) {
   return (
-    <div className="absolute inset-0 flex items-center justify-center px-3 sm:px-6 py-2">
+    <div className="absolute inset-0 flex items-center justify-center px-3 sm:px-6 pb-2 pt-[clamp(1.75rem,7dvh,3.5rem)]">
       <div className="w-full max-w-5xl mx-auto flex flex-col items-center max-h-full">
-        <div className="text-center mb-[clamp(0.35rem,1.4dvh,2rem)]">
-          <span className="font-cinzel text-[clamp(0.5rem,1.3dvh,0.875rem)] tracking-[0.35em] uppercase text-[#dfba5c] font-medium">
+        <div className="text-center mb-[clamp(0.5rem,3.7dvh,2rem)]">
+          <span className="font-cinzel text-[clamp(0.5rem,1.6dvh,0.875rem)] tracking-[0.35em] uppercase text-[#dfba5c] font-medium">
             Meet The
           </span>
-          <h2 className="font-cinzel text-[clamp(1rem,3.4dvh,3.75rem)] text-transparent bg-clip-text bg-gradient-to-r from-[#ebd6a7] via-[#fff5df] to-[#ebd6a7] font-semibold tracking-[0.1em] sm:tracking-[0.12em] mt-1 mb-1 drop-shadow-[0_4px_20px_rgba(0,0,0,0.9)] leading-tight">
+          {/* min(dvh, vw) so the heading shrinks on a NARROW phone too. A pure
+              dvh clamp gets large on a tall-but-narrow screen and "BRIDE & GROOM"
+              then wraps to two lines and collides with the header. */}
+          <h2 className="font-cinzel text-[clamp(0.95rem,min(6.7dvh,7.2vw),3.75rem)] text-transparent bg-clip-text bg-gradient-to-r from-[#ebd6a7] via-[#fff5df] to-[#ebd6a7] font-semibold tracking-[0.1em] sm:tracking-[0.12em] mt-1 mb-2 drop-shadow-[0_4px_20px_rgba(0,0,0,0.9)] leading-tight">
             BRIDE &amp; GROOM
           </h2>
           <div className="flex items-center justify-center gap-3 text-[#d4af37] max-w-xs mx-auto">
             <span className="h-[1px] flex-1 bg-gradient-to-r from-transparent via-[#d4af37]/70 to-[#d4af37]" />
-            <Sparkles className="w-3 h-3 sm:w-4 sm:h-4" />
+            <Sparkles className="w-4 h-4" />
             <span className="h-[1px] flex-1 bg-gradient-to-l from-transparent via-[#d4af37]/70 to-[#d4af37]" />
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-[clamp(0.5rem,1.2dvh,2.5rem)] w-full max-w-3xl">
+        <div className="grid grid-cols-2 gap-[clamp(0.6rem,4.6dvh,2.5rem)] w-full max-w-3xl">
           {COUPLE.map((person) => (
             <div
               key={person.key}
-              className="relative flex flex-col items-center text-center p-[clamp(0.45rem,1.3dvh,1.75rem)] rounded-2xl bg-gradient-to-b from-[#101830] via-[#0b1022] to-[#050814] border border-[#d4af37]/60 shadow-[0_24px_60px_rgba(0,0,0,0.85),inset_0_0_30px_rgba(212,175,55,0.08)]"
+              className="relative flex flex-col items-center text-center p-[clamp(0.6rem,3.2dvh,1.75rem)] rounded-2xl bg-gradient-to-b from-[#101830] via-[#0b1022] to-[#050814] border border-[#d4af37]/60 shadow-[0_24px_60px_rgba(0,0,0,0.85),inset_0_0_30px_rgba(212,175,55,0.08)]"
             >
-              <div className="relative w-[clamp(3rem,9dvh,13rem)] h-[clamp(4rem,15dvh,16rem)] mb-[clamp(0.25rem,1dvh,1.25rem)] rounded-t-full border-2 sm:border-4 border-[#d4af37]/80 overflow-hidden shadow-[0_15px_35px_rgba(0,0,0,0.7),0_0_20px_rgba(212,175,55,0.25)]">
+              {/* 224x288 at 900px tall == 24.9dvh wide. Height is driven by
+                  aspect-ratio rather than a dvh clamp so that on a narrow phone,
+                  where the card is the binding constraint, the portrait shrinks
+                  with its card instead of bursting out of it. */}
+              <div className="relative w-[clamp(2.25rem,24.9dvh,14rem)] max-w-full aspect-[7/9] mb-[clamp(0.5rem,2.9dvh,1.25rem)] rounded-t-full border-2 sm:border-4 border-[#d4af37]/80 overflow-hidden shadow-[0_15px_35px_rgba(0,0,0,0.7),0_0_20px_rgba(212,175,55,0.25)]">
                 <img
                   src={isNight ? person.night : person.day}
                   alt={person.alt}
@@ -180,26 +188,26 @@ function CoupleAct({ isNight }) {
                 <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent pointer-events-none" />
               </div>
 
-              <span className="font-cinzel text-[clamp(0.4rem,1dvh,0.75rem)] tracking-[0.24em] sm:tracking-[0.3em] uppercase text-[#dfba5c] font-semibold mb-0.5">
+              <span className="font-cinzel text-[clamp(0.5rem,1.4dvh,0.75rem)] tracking-[0.24em] sm:tracking-[0.3em] uppercase text-[#dfba5c] font-semibold mb-1">
                 {person.label}
               </span>
-              <h3 className="font-royal text-[clamp(0.75rem,2.3dvh,1.875rem)] text-[#fdfaf3] font-normal tracking-wide my-0.5 leading-tight">
+              <h3 className="font-royal text-[clamp(1rem,3.5dvh,1.875rem)] text-[#fdfaf3] font-normal tracking-wide my-[clamp(0.1rem,0.9dvh,0.25rem)] leading-tight">
                 {person.name}
               </h3>
-              <p className="font-serif-body text-[clamp(0.4rem,1.15dvh,1rem)] text-[#dfba5c] italic tracking-wide mb-[clamp(0.2rem,0.8dvh,0.75rem)] font-medium leading-snug">
+              <p className="font-serif-body text-[clamp(0.55rem,1.85dvh,1rem)] text-[#dfba5c] italic tracking-wide mb-[clamp(0.35rem,1.75dvh,0.75rem)] font-medium leading-snug">
                 {person.parents}
               </p>
-              <div className="w-12 sm:w-20 h-[1px] bg-gradient-to-r from-transparent via-[#d4af37]/80 to-transparent my-[clamp(0.1rem,0.5dvh,0.5rem)]" />
-              <p className="font-serif-body text-[clamp(0.4rem,1.1dvh,0.875rem)] text-[#dad2c3] italic leading-snug sm:leading-relaxed max-w-sm">
+              <div className="w-12 sm:w-20 h-[1px] bg-gradient-to-r from-transparent via-[#d4af37]/80 to-transparent my-[clamp(0.25rem,1.15dvh,0.5rem)]" />
+              <p className="font-serif-body text-[clamp(0.55rem,1.6dvh,0.875rem)] text-[#dad2c3] italic leading-snug sm:leading-relaxed max-w-sm">
                 {person.bio}
               </p>
             </div>
           ))}
         </div>
 
-        <div className="flex items-center gap-3 mt-[clamp(0.25rem,1dvh,1.5rem)] text-[#d4af37]">
+        <div className="flex items-center gap-3 mt-[clamp(0.6rem,3.5dvh,1.5rem)] text-[#d4af37]">
           <span className="w-12 sm:w-16 h-[1px] bg-[#d4af37]/40" />
-          <Heart className="w-3 h-3 sm:w-4 sm:h-4 fill-[#d4af37]/30 text-[#d4af37]" />
+          <Heart className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-[#d4af37]/30 text-[#d4af37]" />
           <span className="w-12 sm:w-16 h-[1px] bg-[#d4af37]/40" />
         </div>
       </div>
@@ -223,9 +231,20 @@ function CoupleAct({ isNight }) {
 function StoryAct({ isNight }) {
   return (
     <div className="absolute inset-0 z-30">
+      {/* NIGHT: the dedicated night plate. Crossfades with the scrubbed day film
+          so the scroll timeline / playhead is never touched — this is the same
+          pattern the backdrops already use. */}
+      <img
+        src={STORY_NIGHT}
+        alt="Romantic night courtyard with elephants, lanterns and rose petals"
+        className={`absolute inset-0 w-full h-full object-cover object-center transition-opacity duration-[900ms] ease-out ${
+          isNight ? 'opacity-100' : 'opacity-0'
+        }`}
+      />
+
       <video
-        className={`story-video absolute inset-0 w-full h-full object-cover transition-[filter] duration-[900ms] ${
-          isNight ? 'brightness-[0.66] contrast-[1.18] hue-rotate-[205deg] saturate-[0.85]' : ''
+        className={`story-video absolute inset-0 w-full h-full object-cover transition-opacity duration-[900ms] ease-out ${
+          isNight ? 'opacity-0' : 'opacity-100'
         }`}
         src={STORY_VIDEO}
         poster={STORY_POSTER}
@@ -234,23 +253,6 @@ function StoryAct({ isNight }) {
         preload="auto"
         disablePictureInPicture
       />
-      {isNight && (
-        <>
-          <div
-            className="absolute inset-0 pointer-events-none"
-            style={{
-              background:
-                'radial-gradient(circle at 75% 20%, rgba(20,35,75,0.34) 0%, rgba(5,10,25,0.62) 60%, rgba(2,5,15,0.85) 100%)',
-              mixBlendMode: 'multiply',
-            }}
-          />
-          <div className="absolute top-16 right-16 sm:right-32 w-10 h-10 sm:w-14 sm:h-14 rounded-full pointer-events-none bg-[#fffce8] opacity-90 shadow-[0_0_35px_#ffeaa7,0_0_80px_rgba(255,234,167,0.4)]" />
-          <div
-            className="absolute bottom-0 inset-x-0 h-36 pointer-events-none"
-            style={{ background: 'linear-gradient(to top, rgba(229,173,53,0.14), transparent)', mixBlendMode: 'screen' }}
-          />
-        </>
-      )}
     </div>
   );
 }
