@@ -41,7 +41,7 @@ gsap.registerPlugin(ScrollTrigger, useGSAP);
 
 const SEAM_DAY = '/assets/scene6/seam-day.jpg';
 const SEAM_NIGHT = '/assets/scene6/seam-night.jpg';
-const COUNTDOWN_FILM = '/assets/scene6/countdown-loop.mp4';
+const COUNTDOWN_FILM = '/assets/scene6/countdown-film.mp4';
 const COUNTDOWN_POSTER = '/assets/scene6/countdown-poster.jpg';
 const STERLING_DAY = '/assets/venues/sterling-day.jpg';
 const STERLING_NIGHT = '/assets/venues/sterling-night.jpg';
@@ -397,25 +397,41 @@ export default function CelebrationJourney({ isNight }) {
   const countdownVideoRef = useRef(null);
   const weddingVideoRef = useRef(null);
   const weddingArmedRef = useRef(false);
-  const countdownPlayingRef = useRef(true);
 
-  // Respect the reduced-motion setting for the one thing that moves on its own:
-  // the looping background film. Everything else here is scroll-driven.
+  /*
+    START THE COUNTDOWN FILM, AND KEEP TRYING UNTIL IT RUNS.
+
+    A single play() on mount is not enough. The element may still be loading, or
+    the browser may defer the start until it has a decoded frame, and a refused
+    attempt is silent. So we retry on the events that mean "there is video now"
+    — loadeddata, canplay, playing — and also once when the tab becomes visible.
+
+    Nothing here cancels playback; every path is an attempt to start it.
+  */
   useEffect(() => {
     const v = countdownVideoRef.current;
-    if (!v) return;
-    const reduce =
-      typeof window !== 'undefined' &&
-      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (reduce) {
-      v.pause();
-      v.currentTime = 0;
-      countdownPlayingRef.current = false;
-    } else {
+    if (!v) return undefined;
+
+    const tryPlay = () => {
+      if (!v.paused) return;
       const p = v.play();
       if (p && typeof p.catch === 'function') p.catch(() => {});
-      countdownPlayingRef.current = true;
-    }
+    };
+
+    tryPlay();
+
+    const events = ['loadeddata', 'canplay', 'canplaythrough', 'playing', 'stalled', 'suspend'];
+    for (const name of events) v.addEventListener(name, tryPlay);
+
+    const onVisible = () => {
+      if (!document.hidden) tryPlay();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+
+    return () => {
+      for (const name of events) v.removeEventListener(name, tryPlay);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, []);
 
   useGSAP(
@@ -432,21 +448,25 @@ export default function CelebrationJourney({ isNight }) {
       const countdownEl = countdownVideoRef.current;
 
       /*
-        THE COUNTDOWN FILM NEVER FREEZES ON ITS OWN.
-        It plays whenever act A is the page you can actually see, and pauses
-        only once act B has swiped over it — so scrolling back up finds it still
-        running rather than a dead poster. The two thresholds differ so a
-        one-pixel jitter at the boundary cannot stutter it.
+        THE COUNTDOWN FILM PLAYS whenever act A is the page you can see, and
+        pauses only once act B has swiped over it — so scrolling back up finds
+        it still running rather than a dead frame.
+
+        The state is read from the element itself (`paused`), never cached in a
+        ref. An earlier version kept a "currently playing" flag and set it to
+        true optimistically, before play() had actually resolved; when the
+        browser refused that first attempt the flag still said "playing", so the
+        retry never ran and the film sat on its poster forever. Reading
+        `el.paused` means every scroll tick retries until it genuinely starts.
       */
       const driveCountdown = (progress) => {
-        if (!countdownEl || reduceMotion) return;
-        const shouldPlay = progress < 0.42;
-        if (shouldPlay && !countdownPlayingRef.current) {
-          countdownPlayingRef.current = true;
-          const p = countdownEl.play();
-          if (p && typeof p.catch === 'function') p.catch(() => {});
-        } else if (!shouldPlay && progress > 0.46 && countdownPlayingRef.current) {
-          countdownPlayingRef.current = false;
+        if (!countdownEl) return;
+        if (progress < 0.42) {
+          if (countdownEl.paused) {
+            const p = countdownEl.play();
+            if (p && typeof p.catch === 'function') p.catch(() => {});
+          }
+        } else if (progress > 0.46 && !countdownEl.paused) {
           countdownEl.pause();
         }
       };
