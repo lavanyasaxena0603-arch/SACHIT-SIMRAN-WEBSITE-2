@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import EntranceJourney from './components/EntranceJourney';
 import ScrollStory from './components/ScrollStory';
+import CelebrationJourney from './components/CelebrationJourney';
 import GlobalControls from './components/GlobalControls';
 
 /**
@@ -76,7 +77,14 @@ export default function App() {
       />
 
       {/* Normal document flow (it must own the scrollbar), but stacked ABOVE
-          the frozen entrance while it dissolves in. */}
+          the frozen entrance while it dissolves in.
+
+          ScrollStory and CelebrationJourney are intentionally CONTIGUOUS
+          SIBLINGS here: two sticky 100dvh stages back to back in one flow. The
+          browser hands off between them natively — the story stage unpins and
+          scrolls up while the celebration stage is already sitting directly
+          beneath it — so there is no seam, no gap and no script involved. Split
+          them into separate wrappers and the native hand-off breaks. */}
       {stage !== 'entrance' && (
         <div
           className={`relative z-[55] transition-opacity duration-[900ms] ease-linear ${
@@ -84,6 +92,7 @@ export default function App() {
           }`}
         >
           <ScrollStory isNight={isNight} />
+          <CelebrationJourney isNight={isNight} />
         </div>
       )}
 
