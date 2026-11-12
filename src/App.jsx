@@ -8,10 +8,7 @@ import GlobalControls from './components/GlobalControls';
 import AmbientMusic from './components/AmbientMusic';
 import RsvpSection from './components/RsvpSection';
 import FinaleSection from './components/FinaleSection';
-import OrientationGate from './components/OrientationGate';
-import RotateHint from './components/RotateHint';
 import useOrientation from './lib/useOrientation';
-import useOrientationContinuity from './lib/useOrientationContinuity';
 
 /**
  * TWO PHASES, ONE DOCUMENT
@@ -79,41 +76,20 @@ export default function App() {
   const [revealed, setRevealed] = useState(false);
 
   // ---- Orientation --------------------------------------------------------
-  // TWO different treatments, because the two halves of the journey have
-  // different stakes:
+  // THERE IS NO ROTATION EXPERIENCE ANY MORE.
   //
-  //   `OrientationGate` — a full-screen invitation to rotate. Only ever during
-  //   the ENTRANCE, before the visitor has read anything, so nothing is
-  //   interrupted. Always dismissible: Part 1A is explicit that nobody may be
-  //   trapped, and the final creative direction's "compulsory lock" is not
-  //   something a web page can actually do — `screen.orientation.lock()`
-  //   requires fullscreen AND a gesture, and iOS Safari does not implement it.
-  //   What we can do is attempt it from the visitor's first tap, which is what
-  //   the gate does; on Android that really does rotate the screen.
+  // This used to drive an `OrientationGate` (a full-screen "rotate your phone"
+  // overlay during the entrance) and a `RotateHint` pill during the story, both
+  // of which were removed at the client's request: mobile guests must be able to
+  // view the whole invitation in normal PORTRAIT, with no forced landscape, no
+  // `screen.orientation.lock()`, no rotate overlay and no blank/frozen frame
+  // when the device turns.
   //
-  //   `RotateHint` — a non-modal pill. Once Phase B is open the visitor is
-  //   mid-story, so re-blocking them would be a regression, not a suggestion.
-  //   It appears at most until the phone has been horizontal once, then retires
-  //   for the session.
-  const { isLandscape, isMobile, everLandscape } = useOrientation();
-  const [gateDismissed, setGateDismissed] = useState(false);
-  const [hintDismissed, setHintDismissed] = useState(false);
-
-  // Having been held sideways once, the visitor has seen the full composition;
-  // neither treatment is "needed" again. `everLandscape` is computed inside the
-  // orientation hook's own state update, so this is a plain derivation with no
-  // second render and no effect chained to a viewport event.
-  const rotateSettled = everLandscape;
-
-  const showGate =
-    isMobile && !isLandscape && !gateDismissed && !rotateSettled && stage === 'entrance';
-
-  const showHint =
-    isMobile && !isLandscape && !hintDismissed && !rotateSettled && stage !== 'entrance';
-
-  // Rotate across a real geometry change; keep the chapter that was being read
-  // under the top of the screen. Enabled only once Phase B exists to anchor to.
-  useOrientationContinuity(stage !== 'entrance');
+  // What survives is `useOrientation`, kept for ONE purpose: `isLandscape` is a
+  // dependency of the ScrollTrigger refresh below. Rotating still changes the
+  // viewport height and therefore every trigger's start/end, so they get
+  // re-measured on the next frame. That is a layout concern, not a prompt.
+  const { isLandscape } = useOrientation();
 
   const handleEntranceComplete = () => {
     window.scrollTo(0, 0);
@@ -228,16 +204,6 @@ export default function App() {
           <EntranceJourney isNight={isNight} onComplete={handleEntranceComplete} />
         </div>
       )}
-
-      {/* Above everything, including the entrance, because the very first thing
-          a portrait phone sees is the invitation card — and that card is the
-          one composition worst served by portrait cropping. Dismissible, so it
-          can never trap anyone. Entrance only: once the story is open the
-          re-suggestion is the non-modal pill below instead. */}
-      <OrientationGate visible={showGate} onDismiss={() => setGateDismissed(true)} />
-
-      {/* Non-blocking, scrolls with the page, retires itself. */}
-      <RotateHint visible={showHint} onDismiss={() => setHintDismissed(true)} />
     </main>
   );
 }

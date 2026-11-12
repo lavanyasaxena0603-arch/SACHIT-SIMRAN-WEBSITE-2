@@ -59,8 +59,10 @@ import { playSafely, ensurePlaying } from '../lib/videoSwap';
  * the film is the chapter, not decoration.
  */
 
-const STILL = '/assets/finale/palace-still.webp';
-const STILL_FALLBACK = '/assets/finale/palace-still.png';
+/* `palace-still.webp` is intentionally NO LONGER USED as a background: it is
+   itself a fireworks photograph, so painting it full-bleed behind the fireworks
+   film produced the duplicated, blown-up double exposure the client rejected.
+   The files remain in public/assets, referenced by nothing. */
 const FILM = '/assets/finale/varmala-fireworks-night.mp4';
 const FILM_POSTER = '/assets/finale/varmala-poster.jpg';
 /* THE ROLLING INVITATION — supplied by the couple, played as supplied.
@@ -79,6 +81,8 @@ const ROLL_POSTER = '/assets/finale/invitation-roll-poster.jpg';
 /* Only the invitation's own entrance is timed now. Nothing gates the acts on a
    clock any more — scroll position does that. */
 const RISE_MS = 900;
+/* The beat between arriving at act 2 and the sheet beginning to rise. */
+const ANTICIPATION_MS = 480;
 
 /* The printed invitation, in the order it is typeset on the parchment. The
    artwork is a fully typeset sheet, so this copy is what assistive technology
@@ -163,7 +167,7 @@ export default function FinaleSection() {
 
   // `started` guards the celebration; `rolled` guards the invitation. Both live
   // in a ref because neither should re-render the tree.
-  const stateRef = useRef({ started: false, rolled: false });
+  const stateRef = useRef({ started: false, rolled: false, armed: false, armTimer: 0 });
 
   /* ------------------------------------------------------------ act engine */
   useEffect(() => {
@@ -200,6 +204,13 @@ export default function FinaleSection() {
 
     // ACT 2 — the invitation unrolls. Triggered by reaching the second act, not
     // by the clock, so the celebration above is never covered.
+    //
+    // ANTICIPATION: the reveal is not fired on the same frame the act becomes
+    // visible. A short beat lets the visitor arrive, see the clean midnight stage
+    // and register that something is about to happen, so the sheet rises as a
+    // surprise rather than snapping in the instant the gesture ends. It is a
+    // presentation delay only — it never blocks a gesture, and the film is
+    // already buffered by the time it runs.
     const startRoll = () => {
       if (s.rolled) return;
       s.rolled = true;
@@ -240,7 +251,14 @@ export default function FinaleSection() {
     const io2 = new IntersectionObserver(
       (entries) => {
         const e = entries[0];
-        if (e.isIntersecting && e.intersectionRatio >= 0.35) startRoll();
+        if (e.isIntersecting && e.intersectionRatio >= 0.35 && !s.armed) {
+          s.armed = true;
+          s.armTimer = setTimeout(startRoll, ANTICIPATION_MS);
+        } else if (!e.isIntersecting && !s.rolled && s.armed) {
+          // Scrolled back out during the beat: cancel, and re-arm on return.
+          clearTimeout(s.armTimer);
+          s.armed = false;
+        }
       },
       { threshold: [0, 0.35, 0.6] },
     );
@@ -254,6 +272,7 @@ export default function FinaleSection() {
     return () => {
       io1.disconnect();
       io2.disconnect();
+      clearTimeout(s.armTimer);
       ro1.disconnect();
       if (roll) roll.pause();
       if (video) video.pause();
@@ -294,21 +313,34 @@ export default function FinaleSection() {
        * scroll past like any other chapter, and they cannot pin anything.
        * ------------------------------------------------------------------ */}
       <div ref={act1Ref} className="relative h-[100dvh] w-full overflow-hidden bg-[#04070f]">
-        {/* The approved palace still. This layer never unmounts, so the
-            background can never go black or be replaced.
+        {/* CLEAN MIDNIGHT STAGE — deliberately NOT a photograph.
 
-            It stays `object-cover` on purpose: it is the FILL. Whatever
-            letterbox the filmed frame needs above and below is painted with
-            this same palace, so the extra space reads as depth, not blank bars. */}
-        <picture>
-          <source srcSet={STILL} type="image/webp" />
-          <img
-            src={STILL_FALLBACK}
-            alt="The palace at night, lit for the varmala"
-            className="absolute inset-0 h-full w-full object-cover"
-            decoding="async"
-          />
-        </picture>
+            This layer used to be `palace-still.webp` painted full-bleed with
+            `object-cover`, and that file is itself a photograph of fireworks
+            over the palace. Under the `object-contain` film it did exactly what
+            the client described: the same fireworks footage appeared enlarged
+            and blurred behind the real video, because the plate was filled by
+            scaling a fireworks photo up until it covered the viewport. Two
+            firework images on top of each other read as a confusing double
+            exposure.
+
+            It is now a flat midnight-navy gradient with a single restrained
+            royal-gold ambient glow: deep navy (#04070f / #090e1c), very dark
+            charcoal-blue, low contrast, no imagery and no texture. The letterbox
+            area around the complete video frame therefore reads as deliberate
+            staging — a lit stage the film plays on — instead of as a duplicate.
+
+            The approved fireworks FILM is untouched and still plays complete
+            (`object-contain`) over this. Nothing is stretched, cropped, blurred
+            or duplicated. */}
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              'radial-gradient(72% 46% at 50% 44%, rgba(212,175,55,0.10) 0%, rgba(212,175,55,0.035) 42%, rgba(212,175,55,0) 72%), radial-gradient(130% 92% at 50% 34%, #0c1322 0%, #070b16 46%, #04070f 100%)',
+          }}
+          aria-hidden="true"
+        />
 
         {/* THE CELEBRATION FILM. Muted, inline, ONCE, and now actually watched:
             nothing is layered over it, so it runs to its own last frame.
@@ -367,16 +399,17 @@ export default function FinaleSection() {
        * pulls them here and nothing stops them leaving.
        * ------------------------------------------------------------------ */}
       <div ref={act2Ref} className="relative h-[100dvh] w-full overflow-hidden bg-[#04070f]">
-        <picture>
-          <source srcSet={STILL} type="image/webp" />
-          <img
-            src={STILL_FALLBACK}
-            alt=""
-            aria-hidden="true"
-            className="absolute inset-0 h-full w-full object-cover"
-            decoding="async"
-          />
-        </picture>
+        {/* The same clean midnight stage as act 1, so the invitation is the only
+            subject in the frame and stays visually distinct from the background.
+            No photograph: the invitation must not sit on top of more artwork. */}
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              'radial-gradient(64% 44% at 50% 48%, rgba(212,175,55,0.11) 0%, rgba(212,175,55,0.04) 44%, rgba(212,175,55,0) 74%), radial-gradient(126% 90% at 50% 40%, #0b1220 0%, #070b16 48%, #04070f 100%)',
+          }}
+          aria-hidden="true"
+        />
 
         <Grading />
         <GoldMotes />

@@ -9,6 +9,33 @@ import { swapThemeVideo, playSafely, ensurePlaying } from '../lib/videoSwap';
 
 gsap.registerPlugin(ScrollTrigger, useGSAP, CustomEase);
 
+/* Returns `true` when the viewport is taller than it is wide.
+ *
+ * This is the one thing that decides which CUT of a film to show, and it is
+ * deliberately based on the VIEWPORT, not on "is this a phone": a 768x1024
+ * tablet has exactly the same framing problem as a 390x844 phone, and a short
+ * desktop window gains nothing from the portrait cut. `orientation` is the
+ * browser's own answer to that question, so no device sniffing is involved.
+ *
+ * Read synchronously on first render so the correct poster paints before any
+ * effect runs — otherwise the landscape cut flashes first. */
+function usePortraitViewport() {
+  const query = '(orientation: portrait)';
+  const [portrait, setPortrait] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia(query).matches,
+  );
+
+  useEffect(() => {
+    const mq = window.matchMedia(query);
+    const onChange = () => setPortrait(mq.matches);
+    onChange();
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+
+  return portrait;
+}
+
 /* The approved easing, expressed exactly.
 
    `cubic-bezier(0.22, 1, 0.36, 1)` is the "elegant deceleration" curve the brief
@@ -78,8 +105,28 @@ const STORY_NIGHT = '/assets/scene5/story-night-scrub.mp4';
 const STORY_POSTER = '/assets/scene5/story-poster.jpg';
 const STORY_NIGHT_POSTER = '/assets/scene5/story-night-poster.jpg';
 
+/* PORTRAIT CUTS OF THE ELEPHANT FILM — 720x1280, generated from the approved
+   footage, not cropped out of the 1280x720 landscape master.
+
+   The landscape film cannot serve a portrait phone: at 390x844 the viewport is
+   far taller than 16:9, so `object-cover` scales the frame up until it fills the
+   height and throws away about 40% of the width — the elephant's head and trunk
+   sit outside the crop. These native portrait cuts carry the same elephant, the
+   same lamps, the same quotation and the same colour grading with the subject
+   fully in frame, so nothing is stretched or aggressively cropped. */
+const STORY_DAY_PORTRAIT = '/assets/scene5/elephant-day-portrait.mp4';
+const STORY_NIGHT_PORTRAIT = '/assets/scene5/elephant-night-portrait.mp4';
+const STORY_DAY_PORTRAIT_POSTER = '/assets/scene5/elephant-day-portrait-poster.jpg';
+const STORY_NIGHT_PORTRAIT_POSTER = '/assets/scene5/elephant-night-portrait-poster.jpg';
+
 const COUNTDOWN_FILM = '/assets/scene6/countdown-film.mp4';
 const COUNTDOWN_POSTER = '/assets/scene6/countdown-poster.jpg';
+
+/* PORTRAIT CUT — 720x1280, the same couple and the same gold medallion composed
+   for a portrait frame. The landscape cut cannot serve a phone without clipping
+   the medallion, which spans ~89% of the frame width. */
+const COUNTDOWN_PORTRAIT = '/assets/scene6/countdown-portrait.mp4';
+const COUNTDOWN_PORTRAIT_POSTER = '/assets/scene6/countdown-portrait-poster.jpg';
 
 const STERLING_DAY = '/assets/venues/sterling-day.jpg';
 const STERLING_NIGHT = '/assets/venues/sterling-night.jpg';
@@ -452,7 +499,7 @@ function CoupleSection({ isNight }) {
  */
 const STORY_ACTIVE_RATIO = 0.6;
 
-function StorySection({ isNight }) {
+function StorySection({ isNight, portrait }) {
   const sectionRef = useRef(null);
   const stageRef = useRef(null);
   const dayRef = useRef(null);
@@ -708,8 +755,20 @@ function StorySection({ isNight }) {
     <section ref={sectionRef} id="story" className="relative w-full" style={{ height: '100dvh' }}>
       <div ref={stageRef} className="sticky top-0 h-[100dvh] w-full overflow-hidden">
         {[
-          { key: 'day', src: STORY_DAY, poster: STORY_POSTER, on: !isNight, ref: dayRef },
-          { key: 'night', src: STORY_NIGHT, poster: STORY_NIGHT_POSTER, on: isNight, ref: nightRef },
+          {
+            key: 'day',
+            src: portrait ? STORY_DAY_PORTRAIT : STORY_DAY,
+            poster: portrait ? STORY_DAY_PORTRAIT_POSTER : STORY_POSTER,
+            on: !isNight,
+            ref: dayRef,
+          },
+          {
+            key: 'night',
+            src: portrait ? STORY_NIGHT_PORTRAIT : STORY_NIGHT,
+            poster: portrait ? STORY_NIGHT_PORTRAIT_POSTER : STORY_NIGHT_POSTER,
+            on: isNight,
+            ref: nightRef,
+          },
         ].map((film) => (
           <video
             key={film.key}
@@ -828,7 +887,7 @@ function CountdownDial() {
  * and the wrapper reproduces object-cover geometry so those fractions stay
  * fractions OF THE FILM at every viewport.
  */
-function CountdownSection({ isNight }) {
+function CountdownSection({ isNight, portrait }) {
   const ref = useRef(null);
   const videoRef = useRef(null);
   const [ready, setReady] = useState(false);
@@ -870,11 +929,32 @@ function CountdownSection({ isNight }) {
 
   return (
     <section ref={ref} id="countdown" className="relative min-h-[100dvh] w-full overflow-hidden">
+      {/* PORTRAIT: the film carries an ornate gold medallion spanning ~89% of
+          its own width, so ANY horizontal crop clips that frame. On a 390x844
+          phone `object-cover` would scale the 720x1280 film to 474x844 and throw
+          away ~18% of the width — cutting the medallion's left and right edges
+          off. It is therefore `object-contain`: the complete frame, medallion
+          included, always in view, at its true 9:16 proportions.
+
+          The residual space above and below is filled with a deep midnight navy
+          wash (sampled from the film's own dark corners) plus a faint gold glow,
+          so the letterbox reads as deliberate staging rather than as empty bars.
+          The film itself is never stretched, blurred or duplicated. */}
+      {portrait && (
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              'radial-gradient(120% 70% at 50% 42%, rgba(20,26,44,0.95) 0%, rgba(9,12,22,0.98) 52%, rgba(3,5,10,1) 100%)',
+          }}
+        />
+      )}
+
       <video
-        className="absolute inset-0 h-full w-full object-cover"
+        className={`absolute inset-0 h-full w-full ${portrait ? 'object-contain' : 'object-cover'}`}
         ref={videoRef}
-        src={COUNTDOWN_FILM}
-        poster={COUNTDOWN_POSTER}
+        src={portrait ? COUNTDOWN_PORTRAIT : COUNTDOWN_FILM}
+        poster={portrait ? COUNTDOWN_PORTRAIT_POSTER : COUNTDOWN_POSTER}
         muted
         playsInline
         preload="auto"
@@ -892,28 +972,60 @@ function CountdownSection({ isNight }) {
         }}
       />
 
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
-          style={{
-            width: 'max(100%, calc(100dvh * 16 / 9))',
-            height: 'max(100%, calc(100vw * 9 / 16))',
-          }}
-        >
+      {portrait ? (
+        /* The dial is positioned against the FILM'S OWN BOX, not the viewport.
+           With `object-contain` the film is a centred 9:16 rectangle; these
+           fractions were measured directly off the portrait film's final frame
+           (medallion centre at 50.7% / 43.3%, inner disc 89% of the frame width),
+           so the counter sits inside the painted medallion at every phone size. */
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
           <div
-            className="absolute"
-            style={{ left: '49.8%', top: '35.21%', width: '17.03%', transform: 'translate(-50%, -50%)' }}
+            className="relative"
+            style={{ width: 'min(100%, calc(100dvh * 9 / 16))', aspectRatio: '9 / 16' }}
           >
             <div
-              className={`origin-center transition-all duration-[900ms] ease-out ${
-                ready ? 'scale-100 opacity-100' : 'scale-[0.5] opacity-0'
-              }`}
+              className="absolute"
+              style={{
+                left: '50.7%',
+                top: '43.3%',
+                width: '80%',
+                transform: 'translate(-50%, -50%)',
+              }}
             >
-              <CountdownDial />
+              <div
+                className={`origin-center transition-all duration-[900ms] ease-out ${
+                  ready ? 'scale-100 opacity-100' : 'scale-[0.5] opacity-0'
+                }`}
+              >
+                <CountdownDial />
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      ) : (
+        <div className="pointer-events-none absolute inset-0 overflow-hidden">
+          <div
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
+            style={{
+              width: 'max(100%, calc(100dvh * 16 / 9))',
+              height: 'max(100%, calc(100vw * 9 / 16))',
+            }}
+          >
+            <div
+              className="absolute"
+              style={{ left: '49.8%', top: '35.21%', width: '17.03%', transform: 'translate(-50%, -50%)' }}
+            >
+              <div
+                className={`origin-center transition-all duration-[900ms] ease-out ${
+                  ready ? 'scale-100 opacity-100' : 'scale-[0.5] opacity-0'
+                }`}
+              >
+                <CountdownDial />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
@@ -1157,6 +1269,8 @@ function ClosingSection() {
 export default function InvitationScroll({ isNight }) {
   const rootRef = useRef(null);
   const [settled, setSettled] = useState(false);
+  // Portrait drives which CUT of the elephant and countdown films is mounted.
+  const portrait = usePortraitViewport();
 
   // The welcome artwork dissolves in over the courtyard's true last frame, so
   // the film -> document hand-off reads as one shot instead of a cut.
@@ -1254,8 +1368,8 @@ export default function InvitationScroll({ isNight }) {
     <div ref={rootRef} id="invitation-scroll" className="relative w-full">
       <WelcomeSection isNight={isNight} settled={settled} />
       <CoupleSection isNight={isNight} />
-      <StorySection isNight={isNight} />
-      <CountdownSection isNight={isNight} />
+      <StorySection isNight={isNight} portrait={portrait} />
+      <CountdownSection isNight={isNight} portrait={portrait} />
       <EngagementSection isNight={isNight} />
       <WeddingSection />
       <ClosingSection />
