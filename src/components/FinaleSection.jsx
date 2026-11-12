@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import { ArrowLeft, DoorOpen } from 'lucide-react';
 import { playSafely, ensurePlaying } from '../lib/videoSwap';
+import { watchFilm } from '../lib/film';
 
 /**
  * THE GRAND ROYAL WEDDING FINALE — night only.
@@ -84,6 +86,14 @@ const RISE_MS = 900;
 /* The beat between arriving at act 2 and the sheet beginning to rise. */
 const ANTICIPATION_MS = 480;
 
+/* THE LAST BEAT OF THE WHOLE INVITATION.
+
+   Once the unroll film has played its final frame the sheet is fully open and
+   readable. The creator signature must not appear on that same frame — the
+   guest is still looking at the finished invitation. So the open sheet is left
+   completely alone for 2.4s, and only then does the signature rise. */
+const SEAL_HOLD_MS = 2400;
+
 /* The printed invitation, in the order it is typeset on the parchment. The
    artwork is a fully typeset sheet, so this copy is what assistive technology
    reads while the same words appear in gold on the parchment itself. It is
@@ -164,10 +174,29 @@ export default function FinaleSection() {
   const [phase, setPhase] = useState(() => (prefersReduce() ? 'hold' : 'reveal'));
   const [showRoll, setShowRoll] = useState(false);
   const [needsTap, setNeedsTap] = useState(false);
+  // The creator signature + the exit control only exist once the sheet has been
+  // open for SEAL_HOLD_MS. `sealed` is the single switch for both.
+  const [sealed, setSealed] = useState(false);
+  const [exitMessage, setExitMessage] = useState(false);
+  const [canGoBack, setCanGoBack] = useState(false);
+  const exitTimerRef = useRef(0);
 
   // `started` guards the celebration; `rolled` guards the invitation. Both live
   // in a ref because neither should re-render the tree.
-  const stateRef = useRef({ started: false, rolled: false, armed: false, armTimer: 0 });
+  const stateRef = useRef({
+    started: false,
+    rolled: false,
+    armed: false,
+    armTimer: 0,
+    // Has act 1 / act 2 been genuinely LEFT? Only a real exit arms the replay,
+    // so a visitor sitting inside a scene never has the film restarted under
+    // them.
+    away1: false,
+    // The seal (signature) timer, kept apart from the arm timer.
+    sealPending: false,
+    sealTimer: 0,
+    stopWatcher: null,
+  });
 
   /* ------------------------------------------------------------ act engine */
   useEffect(() => {
@@ -184,44 +213,119 @@ export default function FinaleSection() {
 
     const s = stateRef.current;
 
-    // ACT 1 — the palace celebration. Once, muted, inline, from the start.
+    /* ------------------------------------------------------------------ *
+     * ACT 1 — the palace celebration
+     * ------------------------------------------------------------------ */
+    const playCelebration = () => {
+      if (!video) return;
+      try {
+        video.currentTime = 0;
+      } catch {
+        /* poster-only; play() still works */
+      }
+      ensurePlaying(video).then((ok) => {
+        // Only after every retry has failed is the tap the honest answer.
+        if (!ok) setNeedsTap(true);
+      });
+    };
+
     const begin = () => {
       if (s.started) return;
       s.started = true;
       setPhase('motion');
-      if (video) {
-        try {
-          video.currentTime = 0;
-        } catch {
-          /* poster-only; play() still works */
-        }
-        ensurePlaying(video).then((ok) => {
-          // Only after every retry has failed is the tap the honest answer.
-          if (!ok) setNeedsTap(true);
-        });
-      }
+      playCelebration();
     };
 
-    // ACT 2 — the invitation unrolls. Triggered by reaching the second act, not
-    // by the clock, so the celebration above is never covered.
-    //
-    // ANTICIPATION: the reveal is not fired on the same frame the act becomes
-    // visible. A short beat lets the visitor arrive, see the clean midnight stage
-    // and register that something is about to happen, so the sheet rises as a
-    // surprise rather than snapping in the instant the gesture ends. It is a
-    // presentation delay only — it never blocks a gesture, and the film is
-    // already buffered by the time it runs.
+    /* REVISITING THE CELEBRATION — automatic replay, no Replay button.
+
+       Only reached after a genuine exit (the act dropped below 5% of the
+       viewport and came back), so a guest standing in the scene never has the
+       film yanked back to frame zero.
+
+       NOTE: `phase` is deliberately NOT reset here. Driving it to 'reveal' for
+       a couple of frames would start the 900ms opacity transition downward and
+       snap it back mid-interpolation, which reads as a visible blink. The film
+       is already opaque and simply restarts from its first frame. */
+    const replayCelebration = () => {
+      s.started = true;
+      setNeedsTap(false);
+      playCelebration();
+    };
+
+    /* ACT 2 — the invitation unrolls. Triggered by reaching the second act, not
+       by the clock, so the celebration above is never covered.
+
+       ANTICIPATION: the reveal is not fired on the same frame the act becomes
+       visible. A short beat lets the visitor arrive, see the clean midnight stage
+       and register that something is about to happen, so the sheet rises as a
+       surprise rather than snapping in the instant the gesture ends. It is a
+       presentation delay only — it never blocks a gesture, and the film is
+       already buffered by the time it runs. */
+
+    /* THE SEAL — the sheet has finished unrolling.
+
+       Nothing changes on screen for SEAL_HOLD_MS: the open invitation is the
+       subject and it gets the frame to itself. After that the signature and the
+       exit control rise in. Idempotent, because completion can be reported by
+       more than one signal. */
+    const seal = () => {
+      if (s.sealPending) return;
+      s.sealPending = true;
+      clearTimeout(s.sealTimer);
+      s.sealTimer = setTimeout(() => setSealed(true), SEAL_HOLD_MS);
+    };
+
     const startRoll = () => {
       if (s.rolled) return;
       s.rolled = true;
+      s.sealPending = false;
+      clearTimeout(s.sealTimer);
+      setSealed(false);
+      setExitMessage(false);
       setShowRoll(true);
+      if (!roll) return;
+
+      try {
+        roll.currentTime = 0;
+      } catch {
+        /* poster-only; play() still works */
+      }
+
+      // Multi-signal completion (the same watcher the entrance uses) rather than
+      // a bare `ended` listener: iOS can drop the tail of a clip, and a missed
+      // event would leave the guest on a finished sheet with no signature and
+      // no way out.
+      if (s.stopWatcher) s.stopWatcher();
+      s.stopWatcher = watchFilm(roll, { onEnd: seal }).stop;
+
+      ensurePlaying(roll);
+    };
+
+    /* LEAVE ACT 2 COMPLETELY → restore its intended first state.
+
+       This runs only when the act is off-screen (below 5%), so the collapse is
+       never watched. It is what makes the second visit a genuine replay: the
+       next entry finds an untouched act, waits the anticipation beat, and the
+       whole rise → unroll → seal sequence happens again. */
+    const resetRoll = () => {
+      clearTimeout(s.sealTimer);
+      s.sealPending = false;
+      s.rolled = false;
+      s.armed = false;
+      if (s.stopWatcher) {
+        s.stopWatcher();
+        s.stopWatcher = null;
+      }
+      setSealed(false);
+      setExitMessage(false);
+      setShowRoll(false);
       if (roll) {
+        roll.pause();
         try {
           roll.currentTime = 0;
         } catch {
-          /* poster-only; play() still works */
+          /* poster-only */
         }
-        ensurePlaying(roll);
       }
     };
 
@@ -231,18 +335,28 @@ export default function FinaleSection() {
     const io1 = new IntersectionObserver(
       (entries) => {
         const e = entries[0];
-        if (e.isIntersecting && e.intersectionRatio >= 0.5) {
-          if (!s.started) begin();
-          else if (video && video.paused && !video.ended) playSafely(video);
+        const inside = e.isIntersecting && e.intersectionRatio >= 0.5;
+
+        if (inside) {
+          if (!s.started) {
+            s.away1 = false;
+            begin();
+          } else if (s.away1) {
+            s.away1 = false;
+            replayCelebration();
+          } else if (video && video.paused && !video.ended) {
+            playSafely(video);
+          }
         }
 
-        if (!e.isIntersecting && video && !video.ended) {
-          // Scrolled away mid-act: pause, never restart. Re-entry resumes from
-          // the same playhead, so the film is not watched from the top twice.
-          video.pause();
+        if (!inside && (!e.isIntersecting || e.intersectionRatio < 0.05)) {
+          // Genuinely gone from the stage: pause, and arm the replay for the
+          // next arrival.
+          s.away1 = true;
+          if (video && !video.ended) video.pause();
         }
       },
-      { threshold: [0, 0.5, 0.75, 1] },
+      { threshold: [0, 0.05, 0.5, 0.75, 1] },
     );
 
     // Act 2 arms the invitation as soon as it is meaningfully on screen. The
@@ -251,16 +365,27 @@ export default function FinaleSection() {
     const io2 = new IntersectionObserver(
       (entries) => {
         const e = entries[0];
-        if (e.isIntersecting && e.intersectionRatio >= 0.35 && !s.armed) {
-          s.armed = true;
-          s.armTimer = setTimeout(startRoll, ANTICIPATION_MS);
-        } else if (!e.isIntersecting && !s.rolled && s.armed) {
-          // Scrolled back out during the beat: cancel, and re-arm on return.
+
+        if (e.isIntersecting && e.intersectionRatio >= 0.35) {
+          if (!s.armed) {
+            s.armed = true;
+            s.armTimer = setTimeout(startRoll, ANTICIPATION_MS);
+          }
+          return;
+        }
+
+        if (!e.isIntersecting || e.intersectionRatio < 0.35) {
+          // Fully left behind. Cancel a pending beat and, if it had already
+          // started, put the act back to its first state — entirely off-screen,
+          // so the collapse is never watched.
           clearTimeout(s.armTimer);
           s.armed = false;
+          if (e.intersectionRatio === 0 && (s.rolled || s.sealPending || s.stopWatcher)) {
+            resetRoll();
+          }
         }
       },
-      { threshold: [0, 0.35, 0.6] },
+      { threshold: [0, 0.05, 0.35, 0.6, 1] },
     );
 
     const ro1 = new ResizeObserver(() => ScrollTrigger.refresh());
@@ -273,6 +398,11 @@ export default function FinaleSection() {
       io1.disconnect();
       io2.disconnect();
       clearTimeout(s.armTimer);
+      clearTimeout(s.sealTimer);
+      if (s.stopWatcher) {
+        s.stopWatcher();
+        s.stopWatcher = null;
+      }
       ro1.disconnect();
       if (roll) roll.pause();
       if (video) video.pause();
@@ -287,6 +417,40 @@ export default function FinaleSection() {
     const id = requestAnimationFrame(() => ScrollTrigger.refresh());
     return () => cancelAnimationFrame(id);
   }, []);
+
+  /* THE EXIT — honest about what a browser will let a page do.
+
+     A tab the guest opened themselves cannot be closed by script, and no pop-up
+     trick or fake redirect is used to pretend otherwise. `window.close()` is
+     attempted first (it works when the page opened the window), and if the tab
+     is still here a moment later the guest is told, plainly, that they may close
+     it. Nothing is cleared: no history, no storage, no cookie, no preference. */
+  const handleExit = () => {
+    setExitMessage(false);
+    try {
+      window.close();
+    } catch {
+      /* blocked by the browser — expected for a normally-opened tab */
+    }
+
+    window.clearTimeout(exitTimerRef.current);
+    exitTimerRef.current = window.setTimeout(() => {
+      if (window.closed) return;
+      // Only offered when there genuinely is somewhere to go back to.
+      setCanGoBack(window.history.length > 1);
+      setExitMessage(true);
+    }, 180);
+  };
+
+  const goBack = () => {
+    try {
+      window.history.back();
+    } catch {
+      /* nothing to go back to */
+    }
+  };
+
+  useEffect(() => () => window.clearTimeout(exitTimerRef.current), []);
 
   const filmVisible = phase !== 'reveal';
   const ease = 'cubic-bezier(.18,.78,.18,1)';
@@ -428,7 +592,7 @@ export default function FinaleSection() {
             (rise + slight settle + fade). It is `pointer-events-none` so the
             foreground never intercepts a scroll gesture. */}
         <div
-          className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center"
+          className="pointer-events-none absolute inset-0 z-30 flex flex-col items-center justify-center gap-[clamp(0.55rem,1.7dvh,1.1rem)] px-5"
           style={{
             opacity: showRoll ? 1 : 0,
             transform: `translate3d(0, ${showRoll ? 0 : 4}%, 0) scale(${showRoll ? 1 : 0.97})`,
@@ -448,8 +612,28 @@ export default function FinaleSection() {
                sat off the sheet. Constraining both maxima instead lets the box
                take the video's own ratio at any viewport, so the shadow hugs the
                artwork and nothing is ever cropped. */
-            className="block h-auto w-auto max-h-[88dvh] max-w-[94vw] object-contain"
-            style={{ filter: 'drop-shadow(0 26px 54px rgba(0,0,0,0.70))' }}
+            className="block h-auto w-auto min-h-0 max-w-[94vw] object-contain"
+            /* THE SHEET MAKES ROOM FOR THE SIGNATURE — BY LAYOUT, NOT BY LUCK.
+
+               The closing block is a SIBLING of the sheet inside this same flex
+               column, so the two can never overlap: the column centres the pair
+               and the sheet's own `max-height` is what gives the closing block
+               its space. That is structural, so it holds at every viewport
+               without a magic offset.
+
+               The reservation is generous (17rem) so the exit message can also
+               appear underneath without pushing anything off the stage. It is a
+               900ms ease, once, after the guest has already watched the whole
+               unroll at full size — nothing is cropped, stretched or re-drawn.
+
+               `max-h`/`max-w` with intrinsic `auto` sizing still lets the box
+               take the film's own ratio, so the drop-shadow keeps hugging the
+               artwork. */
+            style={{
+              maxHeight: sealed ? 'min(74dvh, calc(100dvh - 17rem))' : '88dvh',
+              filter: 'drop-shadow(0 26px 54px rgba(0,0,0,0.70))',
+              transition: reduce ? 'none' : `max-height ${RISE_MS}ms ${ease}`,
+            }}
             src={ROLL}
             poster={ROLL_POSTER}
             muted
@@ -458,6 +642,86 @@ export default function FinaleSection() {
             disablePictureInPicture
             aria-label="The wedding invitation, unrolling"
           />
+
+          {/* ---------------------------------------------------------------- *
+           * THE CREATOR SIGNATURE — the last thing in the whole invitation.
+           *
+           * A SIBLING OF THE SHEET, IN THE SAME FLEX COLUMN — not an overlay.
+           * That is what makes "it must not cover the invitation" structural
+           * rather than a tuned offset: the column centres the pair, and the
+           * sheet's own max-height is what frees the space. It also means the
+           * signature simply pushes the composition up by its own height, so it
+           * holds at every viewport, phone or desktop, without a magic number.
+           *
+           * Mounted only once the sheet has been open for SEAL_HOLD_MS, so it
+           * cannot appear while the invitation is still being read, and it
+           * cannot appear on any earlier page: this node exists only inside
+           * act 2, whose contents only show after the visitor scrolls into it.
+           *
+           * The entrance is a mount-time keyframe animation (opacity 0 → 1,
+           * 18px rise); the underline is a separate hairline that draws outward
+           * from its own centre. Both live in index.css so
+           * `prefers-reduced-motion` resolves them in one place — the signature
+           * is then simply present, which is the honest answer.
+           *
+           * Typography is HTML/CSS only: no raster, no watermark, no logo. */}
+          {sealed && (
+            <div className="pointer-events-auto flex w-full shrink-0 justify-center px-4 pb-[max(0.4rem,env(safe-area-inset-bottom,0px))]">
+              <div className="relative flex w-full max-w-[26rem] flex-col items-center text-center">
+              <p className="signature-line font-royal text-[clamp(1.06rem,2.7vw,1.5rem)] leading-none tracking-[0.02em] italic">
+                <span className="font-sans-clean mb-2 block text-[clamp(0.5rem,1.35vw,0.62rem)] tracking-[0.34em] uppercase not-italic text-[#cbb27a]">
+                  Created with love by
+                </span>{' '}
+                <span className="bg-gradient-to-r from-[#e6c877] via-[#fff4d4] to-[#e6c877] bg-clip-text text-transparent drop-shadow-[0_2px_14px_rgba(212,175,55,0.35)]">
+                  Lavanya Saxena
+                </span>
+              </p>
+
+              <span
+                className="signature-rule mt-[clamp(0.5rem,1.3dvh,0.75rem)] block h-px w-[min(74%,13rem)]"
+                style={{
+                  background:
+                    'linear-gradient(90deg, rgba(212,175,55,0.0) 0%, rgba(212,175,55,0.85) 24%, #fff3cd 50%, rgba(212,175,55,0.85) 76%, rgba(212,175,55,0.0) 100%)',
+                  boxShadow: '0 0 10px rgba(212,175,55,0.5)',
+                }}
+                aria-hidden="true"
+              />
+
+              {/* THE EXIT. Pill, midnight navy, hairline gold, gold caps, a
+                  minimal door glyph, a gold bloom on hover and a 300ms settle.
+                  44px minimum touch height on every viewport. */}
+              <button
+                type="button"
+                onClick={handleExit}
+                className="signature-exit font-cinzel pointer-events-auto mt-[clamp(0.8rem,2.1dvh,1.2rem)] inline-flex min-h-[44px] items-center justify-center gap-2.5 rounded-full border border-[#d4af37]/65 bg-[linear-gradient(180deg,#0b1324_0%,#060b16_100%)] px-[clamp(1.1rem,3.4vw,1.6rem)] text-[clamp(0.55rem,1.4vw,0.65rem)] tracking-[0.28em] text-[#f3e5ab] shadow-[0_12px_30px_rgba(0,0,0,0.7),0_0_0_1px_rgba(212,175,55,0.12)_inset,0_1px_0_rgba(255,240,200,0.18)_inset] transition-[transform,box-shadow,border-color,color] duration-300 ease-out hover:border-[#f3e5ab] hover:text-[#fff8e2] hover:shadow-[0_16px_40px_rgba(0,0,0,0.7),0_0_26px_rgba(212,175,55,0.42),0_1px_0_rgba(255,240,200,0.3)_inset] active:scale-[0.97] active:duration-150 focus-visible:ring-2 focus-visible:ring-[#d4af37]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#04070f] focus-visible:outline-none"
+              >
+                <DoorOpen className="h-3.5 w-3.5 shrink-0" strokeWidth={1.6} aria-hidden="true" />
+                EXIT INVITATION
+              </button>
+
+              {/* Shown only when the browser refused to close the tab. Plain,
+                  polite, and it offers the history route as a separate, clearly
+                  user-triggered choice. */}
+              {exitMessage && (
+                <div role="status" aria-live="polite" className="mt-[clamp(0.5rem,1.5dvh,0.85rem)]">
+                  <p className="font-serif-body text-[clamp(0.72rem,1.9vw,0.88rem)] leading-relaxed italic text-[#e6dcc0]">
+                    Thank you for being part of this celebration. You may now close this tab.
+                  </p>
+                  {canGoBack && (
+                    <button
+                      type="button"
+                      onClick={goBack}
+                      className="font-sans-clean pointer-events-auto mt-1 inline-flex min-h-[36px] items-center gap-1.5 rounded-full px-3 text-[10px] tracking-[0.2em] uppercase text-[#d8b878] transition-colors duration-300 hover:text-[#f7e7b4] focus-visible:ring-2 focus-visible:ring-[#d4af37]/60 focus-visible:outline-none"
+                    >
+                      <ArrowLeft className="h-3 w-3" aria-hidden="true" />
+                      Return to the previous page
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
         </div>
 
         {/* The printed invitation, for assistive technology. The same stages

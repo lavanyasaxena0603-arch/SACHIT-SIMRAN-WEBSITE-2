@@ -514,6 +514,9 @@ function StorySection({ isNight, portrait }) {
     pinY: 0,
     settleUntil: 0,
     timer: 0,
+    // Has the chapter been genuinely LEFT? Only a real exit arms the replay, so
+    // a guest sitting inside the scene never has the film restarted under them.
+    away: false,
     // Last scroll position we observed, so the hold can tell which way the
     // visitor is travelling before it decides anything.
     lastY: 0,
@@ -703,6 +706,24 @@ function StorySection({ isNight, portrait }) {
     startRef.current = begin;
     skipRef.current = skip;
 
+    /* ------------------------------------------------------------------ *
+     * REVISITING THE ELEPHANT — automatic replay, no Replay button.
+     *
+     * Only reached after a genuine exit (the stage dropped below 5% of the
+     * viewport AND came back), so the film is never restarted while the guest
+     * is still watching it. The chapter is put back to its intended first state
+     * first — finished cleared — and only then does the normal `begin()` run, so
+     * the replay is the SAME code path as the first visit: seek to 0, retry
+     * through canplay, engage the hold, arm the deadline. No second set of
+     * listeners and no second video element.
+     * ------------------------------------------------------------------ */
+    const replay = () => {
+      if (!themeVideo()) return;
+      s.finished = false;
+      s.started = false;
+      begin();
+    };
+
     /* ---------------- events ---------------- */
     const onEnded = (e) => {
       // Ignore the hidden theme layer: only the visible film may finish the scene.
@@ -715,26 +736,34 @@ function StorySection({ isNight, portrait }) {
       (entries) => {
         const entry = entries[0];
         const v = themeVideo();
+        const onStage =
+          entry.isIntersecting && entry.intersectionRatio >= STORY_ACTIVE_RATIO;
 
-        if (entry.isIntersecting && entry.intersectionRatio >= STORY_ACTIVE_RATIO) {
+        if (onStage) {
           if (!s.started) {
+            s.away = false;
             begin();
+          } else if (s.away) {
+            // GENUINE RE-ENTRY — replay from the beginning, scrolling down or up.
+            s.away = false;
+            replay();
           } else if (!s.finished && v && v.paused) {
-            // Returning to the chapter resumes where it was paused. It does not
-            // restart, and it does not replay from zero.
+            // Same visit, merely interrupted (tab backgrounded, decoder nudge):
+            // resume where it was instead of restarting mid-scene.
             playSafely(v);
             engageHold();
           }
           return;
         }
 
-        if (!entry.isIntersecting && !s.finished) {
-          // Left the stage (scrolled up past it). Pause and let go.
+        if (!entry.isIntersecting || entry.intersectionRatio < 0.05) {
+          // Genuinely gone from the stage. Pause, let go, arm the replay.
+          s.away = true;
           if (v) v.pause();
           releaseHold();
         }
       },
-      { threshold: [0, 0.5, STORY_ACTIVE_RATIO, 1] },
+      { threshold: [0, 0.05, 0.5, STORY_ACTIVE_RATIO, 1] },
     );
     io.observe(stage);
 
@@ -875,12 +904,21 @@ function CountdownDial() {
 }
 
 /**
- * THE COUNTDOWN — the film plays once, then holds on its last frame, and the
- * timer zooms into the medallion that final frame leaves empty.
+ * THE COUNTDOWN — the film plays through, then the timer zooms into the
+ * medallion that the film's final frame leaves empty.
  *
- * One-shot by construction: `startedRef` is set the first time the section
- * comes into view and is never cleared, and the element carries no `loop`, so
- * scrolling back up finds the film held on its final frame instead of replaying.
+ * REPLAYING IT, WITHOUT RESETTING IT.
+ * -----------------------------------
+ * The chapter is revisited like every other scene: leave it, come back, and the
+ * film starts again from frame one while the dial's pop-in replays with it. What
+ * must NEVER be replayed is the countdown itself — and it is not, because the
+ * timer is not a stored value at all. `useCountdown()` derives the remaining
+ * time from the clock on every tick, so `ready` is only a presentation flag:
+ * hiding the dial for the length of the film and bringing it back shows the
+ * CORRECT remaining time, never a stale one, and never a restarted one.
+ *
+ * If the film cannot start on a replay, the dial is put straight in rather than
+ * leaving the chapter with an empty medallion.
  *
  * The dial's position is measured from the film's own last frame — centre at
  * 49.80% across and 35.21% down, with a diameter of 17.03% of the frame width —
@@ -891,13 +929,33 @@ function CountdownSection({ isNight, portrait }) {
   const ref = useRef(null);
   const videoRef = useRef(null);
   const [ready, setReady] = useState(false);
-  const startedRef = useRef(false);
   const readyRef = useRef(false);
 
   const revealDial = () => {
     if (readyRef.current) return;
     readyRef.current = true;
     setReady(true);
+  };
+
+  const hideDial = () => {
+    readyRef.current = false;
+    setReady(false);
+  };
+
+  /* One code path for the first visit and every replay: put the film back to its
+     first frame, start it, and let its own end reveal the dial. */
+  const playFilm = (video) => {
+    try {
+      video.currentTime = 0;
+    } catch {
+      /* poster-only; play() still works */
+    }
+    // Not a bare play(): retries through canplay/loadeddata, and if the film
+    // genuinely cannot start the dial still appears, so the visitor never stares
+    // at an empty medallion.
+    ensurePlaying(video).then((ok) => {
+      if (!ok) revealDial();
+    });
   };
 
   useGSAP(
@@ -911,23 +969,23 @@ function CountdownSection({ isNight, portrait }) {
         start: 'top 78%',
         end: 'bottom top',
         onEnter: () => {
-          if (startedRef.current) return;
-          startedRef.current = true;
-          try {
-            video.currentTime = 0;
-          } catch {
-            /* poster-only; play() still works */
-          }
-          // Not a bare play(): retries through canplay/loadeddata, and if the
-          // film genuinely cannot start the dial still appears, so the visitor
-          // never stares at an empty medallion.
-          ensurePlaying(video).then((ok) => {
-            if (!ok) revealDial();
-          });
+          hideDial();
+          playFilm(video);
+        },
+        // Coming back up from below is a genuine re-entry too.
+        onEnterBack: () => {
+          hideDial();
+          playFilm(video);
         },
         // Scrolled past before the clip finished: the visitor never saw the
         // ending, so put the dial in rather than leave an empty ring.
-        onLeave: revealDial,
+        onLeave: () => {
+          video.pause();
+          revealDial();
+        },
+        onLeaveBack: () => {
+          video.pause();
+        },
       });
 
       return () => st.kill();
@@ -1162,38 +1220,41 @@ function EngagementSection({ isNight }) {
  *
  * Playing on arrival is handled by ScrollTrigger rather than autoplay, so a
  * visitor scrolling past quickly does not leave a 4MB decode running.
+ *
+ * RE-PLAYED ON EXIT/RE-ENTRY, in either direction, so arriving again starts the
+ * film from its first frame. Boundary crossings only — a visitor standing in the
+ * chapter never has it restarted under them — and there is still exactly one
+ * <video> and one ScrollTrigger.
  */
 function WeddingSection() {
   const ref = useRef(null);
   const videoRef = useRef(null);
-  const armedRef = useRef(false);
 
   useGSAP(
     () => {
       const video = videoRef.current;
       if (!video) return undefined;
 
+      const play = () => {
+        try {
+          video.currentTime = 0;
+        } catch {
+          /* poster-only; play() still works */
+        }
+        // Retries through canplay/loadeddata instead of swallowing one
+        // rejection. The venue film is decorative: if it cannot start, the
+        // poster stays and the section is still fully readable.
+        ensurePlaying(video);
+      };
+
       const st = ScrollTrigger.create({
         trigger: ref.current,
         start: 'top 65%',
         end: 'bottom top',
-        onEnter: () => {
-          if (armedRef.current) return;
-          armedRef.current = true;
-          try {
-            video.currentTime = 0;
-          } catch {
-            /* poster-only; play() still works */
-          }
-          // Retries through canplay/loadeddata instead of swallowing one
-          // rejection. The venue film is decorative: if it cannot start, the
-          // poster stays and the section is still fully readable.
-          ensurePlaying(video);
-        },
-        onLeaveBack: () => {
-          armedRef.current = false;
-          video.pause();
-        },
+        onEnter: play,
+        onEnterBack: play,
+        onLeave: () => video.pause(),
+        onLeaveBack: () => video.pause(),
       });
 
       return () => st.kill();

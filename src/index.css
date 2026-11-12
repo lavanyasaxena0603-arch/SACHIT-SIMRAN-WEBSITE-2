@@ -312,3 +312,75 @@
     opacity: 0;
   }
 }
+
+/* ------------------------------------------------- THE CREATOR SIGNATURE ---- */
+/* The very last thing in the invitation: one line of gold type, a hairline
+   underline that draws outward from its own centre, and the exit control.
+
+   These are MOUNT-TIME keyframes rather than transitions. The node is only
+   inserted once the sheet has been open for a beat, so there is nothing to
+   transition FROM on its first frame; a keyframe animation starts at its 0%
+   state by definition, which is what makes the 18px rise reliable. Under
+   reduced motion each animation is replaced by its finished state, so the
+   signature is simply present instead of absent. */
+@keyframes signatureRise {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 18px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes signatureRuleDraw {
+  from {
+    transform: scaleX(0);
+    opacity: 0;
+  }
+  to {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+}
+
+/* The exit control follows the signature rather than arriving with it, so the
+   eye reads signature → underline → control in that order. */
+@keyframes signatureControlIn {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.signature-line {
+  animation: signatureRise 1100ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  will-change: transform, opacity;
+}
+
+.signature-rule {
+  transform-origin: 50% 50%;
+  animation: signatureRuleDraw 1000ms cubic-bezier(0.22, 1, 0.36, 1) 260ms both;
+  will-change: transform, opacity;
+}
+
+.signature-exit {
+  animation: signatureControlIn 700ms cubic-bezier(0.22, 1, 0.36, 1) 420ms both;
+}
+
+/* Reduced motion: every element lands in its FINAL state with no travel and no
+   draw. The signature stays readable — which is the point of the preference. */
+@media (prefers-reduced-motion: reduce) {
+  .signature-line,
+  .signature-rule,
+  .signature-exit {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
