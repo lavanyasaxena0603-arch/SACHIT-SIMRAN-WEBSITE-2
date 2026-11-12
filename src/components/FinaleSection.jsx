@@ -630,7 +630,19 @@ export default function FinaleSection() {
                take the film's own ratio, so the drop-shadow keeps hugging the
                artwork. */
             style={{
-              maxHeight: sealed ? 'min(74dvh, calc(100dvh - 17rem))' : '88dvh',
+              /* Two reserves, because the closing block is two different
+                 heights. Without the message it needs ~200px under the sheet;
+                 the polite fallback paragraph and its history button add ~85px
+                 more, and the sheet eases down by exactly that much when the
+                 guest taps EXIT. Over-reserving in the common case would shrink
+                 the invitation for no reason: measured on a 390x844 phone, a
+                 17rem reserve left 73px of dead space and cost the artwork ~20%
+                 of its height. */
+              maxHeight: sealed
+                ? exitMessage
+                  ? 'min(88dvh, calc(100dvh - 16rem))'
+                  : 'min(88dvh, calc(100dvh - 9.5rem))'
+                : '88dvh',
               filter: 'drop-shadow(0 26px 54px rgba(0,0,0,0.70))',
               transition: reduce ? 'none' : `max-height ${RISE_MS}ms ${ease}`,
             }}
@@ -668,7 +680,7 @@ export default function FinaleSection() {
           {sealed && (
             <div className="pointer-events-auto flex w-full shrink-0 justify-center px-4 pb-[max(0.4rem,env(safe-area-inset-bottom,0px))]">
               <div className="relative flex w-full max-w-[26rem] flex-col items-center text-center">
-              <p className="signature-line font-royal text-[clamp(1.06rem,2.7vw,1.5rem)] leading-none tracking-[0.02em] italic">
+              <p className="signature-line font-royal text-[clamp(1.09rem,2.7vw,1.5rem)] leading-none tracking-[0.02em] italic">
                 <span className="font-sans-clean mb-2 block text-[clamp(0.5rem,1.35vw,0.62rem)] tracking-[0.34em] uppercase not-italic text-[#cbb27a]">
                   Created with love by
                 </span>{' '}
