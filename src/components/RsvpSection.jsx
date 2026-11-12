@@ -1,6 +1,6 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Heart, Check, X, Send, Loader2, ChevronDown } from 'lucide-react';
-import { submitRsvp, hasRemoteEndpoint } from '../lib/rsvp';
+import { submitRsvp, makeClientToken } from '../lib/rsvp';
 
 /**
  * THE ROYAL RSVP LETTER
@@ -37,18 +37,39 @@ const ATTENDANCE = [
   { key: 'declines', label: 'Regretfully Declines' },
 ];
 
-function validate({ name, attendance, guests, events }) {
+const MEALS = [
+  { key: 'vegetarian', label: 'Vegetarian' },
+  { key: 'non-vegetarian', label: 'Non-Vegetarian' },
+  { key: 'jain', label: 'Jain' },
+  { key: 'vegan', label: 'Vegan' },
+  { key: 'no-preference', label: 'No preference' },
+];
+
+/* Client-side validation. This is a COURTESY that saves a round-trip — the
+   server re-validates everything and is the only authority. The rules are kept
+   deliberately in step with server/validate.mjs so a guest never sees a green
+   form rejected by the backend. */
+function validate({ name, phone, email, attendance, guests, events }) {
   const errors = {};
 
   if (!name.trim()) errors.name = 'Please write your full name.';
   else if (name.trim().length < 2) errors.name = 'That looks a little short — please write your full name.';
+
+  const digits = phone.replace(/\D/g, '');
+  if (!digits) errors.phone = 'Please add your WhatsApp or mobile number.';
+  else if (digits.length < 10) errors.phone = 'That does not look like a complete mobile number.';
+  else if (digits.length > 15) errors.phone = 'That number looks too long.';
+
+  if (email.trim() && !/^[^\s@]+@[^\s@]+\.[A-Za-z]{2,}$/.test(email.trim())) {
+    errors.email = 'That email address looks incomplete.';
+  }
 
   if (!attendance) errors.attendance = 'Please let us know whether you can join us.';
 
   if (attendance === 'accepts') {
     const n = Number(guests);
     if (!Number.isInteger(n) || n < 1) errors.guests = 'Please tell us how many guests will attend.';
-    else if (n > 10) errors.guests = 'For more than 10 guests, please write to us directly.';
+    else if (n > 20) errors.guests = 'For more than 20 guests, please write to us directly.';
 
     if (!events.length) errors.events = 'Please choose at least one celebration.';
   }
@@ -87,14 +108,45 @@ function FieldError({ id, children }) {
 
 export default function RsvpSection({ isNight = false }) {
   const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
   const [attendance, setAttendance] = useState('');
   const [guests, setGuests] = useState('2');
   const [events, setEvents] = useState([]);
+  const [meal, setMeal] = useState('no-preference');
   const [message, setMessage] = useState('');
   const [errors, setErrors] = useState({});
   const [status, setStatus] = useState('idle'); // idle | sending | done | failed
   const [resultMessage, setResultMessage] = useState('');
+  const [receipt, setReceipt] = useState(null); // { id, submittedAtIst }
   const liveRef = useRef(null);
+
+  /* ---- SUBMISSION GUARDS --------------------------------------------------
+     Three separate things, because they fail in three different ways:
+
+       1. `submittingRef` — a synchronous latch. `status === 'sending'` alone is
+          not enough: React batches, so two clicks in the same tick both read
+          the old state and both POST. The ref closes that gap.
+       2. `clientToken` — one per rendered form, reused on retry, so the SERVER
+          can recognise a repeat of the same form and return the stored row
+          instead of creating a second one.
+       3. `startedAt` — when the form first appeared. A submission faster than
+          1.5s is a bot; the server discards it silently.
+
+     Together they mean a double-tap, a flaky network retry, or a bot can never
+     produce two rows. */
+  const submittingRef = useRef(false);
+  // Both are initialised in the effect below rather than inline: `Date.now()` and
+  // `crypto.randomUUID()` are impure, and calling them during render makes the
+  // render non-deterministic (React's purity rule, and a real bug under
+  // StrictMode double-render where the token would differ between passes).
+  const tokenRef = useRef(null);
+  const startedAtRef = useRef(0);
+
+  useEffect(() => {
+    if (!tokenRef.current) tokenRef.current = makeClientToken();
+    if (!startedAtRef.current) startedAtRef.current = Date.now();
+  }, []);
 
   const declines = attendance === 'declines';
 
@@ -118,7 +170,12 @@ export default function RsvpSection({ isNight = false }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const found = validate({ name, attendance, guests, events });
+
+    // Synchronous latch. `status` alone is not enough — React batches state, so
+    // a double-tap in one tick would pass the `=== 'sending'` check twice.
+    if (submittingRef.current) return;
+
+    const found = validate({ name, phone, email, attendance, guests, events });
     setErrors(found);
     if (Object.keys(found).length) {
       const first = document.getElementById(`rsvp-${Object.keys(found)[0]}`);
@@ -126,24 +183,40 @@ export default function RsvpSection({ isNight = false }) {
       return;
     }
 
+    submittingRef.current = true;
     setStatus('sending');
-    const res = await submitRsvp({
-      name: name.trim(),
-      attendance,
-      guests: declines ? 0 : Number(guests),
-      events: declines ? [] : events,
-      message: message.trim(),
-    });
+    setResultMessage('');
+
+    const res = await submitRsvp(
+      {
+        name: name.trim(),
+        phone: phone.trim(),
+        email: email.trim(),
+        attendance,
+        guests: declines ? 0 : Number(guests),
+        events: declines ? [] : events,
+        meal: declines ? '' : meal,
+        message: message.trim(),
+      },
+      { clientToken: tokenRef.current, startedAt: startedAtRef.current },
+    );
+
+    submittingRef.current = false;
 
     if (res.ok) {
       setStatus('done');
+      setReceipt({ id: res.id || '', submittedAtIst: res.submittedAtIst || '', duplicate: Boolean(res.duplicate) });
       setResultMessage(
-        res.remote
-          ? 'Your response has reached Simran & Sachit.'
-          : 'Saved on this device. This invitation is not yet connected to a response server, so your answer has not been sent to the couple.',
+        res.duplicate
+          ? 'This response had already reached us — thank you. There is no need to send it again.'
+          : 'Your response has been received. We look forward to celebrating together!',
       );
     } else {
       setStatus('failed');
+      // Server-side field errors are surfaced on the fields themselves, which is
+      // more useful than a paragraph, but we keep a sentence too so a screen
+      // reader announces something.
+      if (res.fields) setErrors((prev) => ({ ...prev, ...res.fields }));
       setResultMessage(res.message);
     }
 
@@ -154,13 +227,21 @@ export default function RsvpSection({ isNight = false }) {
 
   const resetForm = () => {
     setName('');
+    setPhone('');
+    setEmail('');
     setAttendance('');
     setGuests('2');
     setEvents([]);
+    setMeal('no-preference');
     setMessage('');
     setErrors({});
     setStatus('idle');
     setResultMessage('');
+    setReceipt(null);
+    // A new response gets a NEW token and a NEW fill-time clock, so the server
+    // treats it as a genuinely separate submission rather than a retry.
+    tokenRef.current = makeClientToken();
+    startedAtRef.current = Date.now();
   };
 
   return (
@@ -281,10 +362,20 @@ export default function RsvpSection({ isNight = false }) {
                   {resultMessage}
                 </p>
 
-                {status === 'done' && !hasRemoteEndpoint && (
-                  <p className="font-sans-clean mx-auto mt-4 max-w-md text-[10px] leading-relaxed tracking-[0.04em] text-[#8a7460]">
-                    A response server has not been configured for this invitation yet.
-                  </p>
+                {status === 'done' && receipt?.id && (
+                  <div className="mx-auto mt-5 max-w-sm rounded-[2px] border border-[#a87932]/35 bg-[rgba(168,121,50,0.07)] px-4 py-3">
+                    <p className="font-cinzel text-[8.5px] font-semibold tracking-[0.26em] uppercase text-[#a87932]">
+                      Your Reference
+                    </p>
+                    <p className="font-sans-clean mt-1.5 text-[13px] tracking-[0.12em] text-[#5c4937]">
+                      {receipt.id}
+                    </p>
+                    {receipt.submittedAtIst && (
+                      <p className="font-sans-clean mt-1 text-[10px] tracking-[0.04em] text-[#8a7460]">
+                        Recorded {receipt.submittedAtIst}
+                      </p>
+                    )}
+                  </div>
                 )}
 
                 <button
@@ -330,6 +421,55 @@ export default function RsvpSection({ isNight = false }) {
                     }`}
                   />
                   <FieldError id="rsvp-name-error">{errors.name}</FieldError>
+                </div>
+
+                {/* 1b — PHONE (required: it is how the couple reaches the guest) */}
+                <div className="mb-5">
+                  <FieldLabel htmlFor="rsvp-phone">
+                    WhatsApp / Mobile Number
+                  </FieldLabel>
+                  <input
+                    id="rsvp-phone"
+                    type="tel"
+                    inputMode="tel"
+                    value={phone}
+                    onChange={(e) => {
+                      setPhone(e.target.value);
+                      if (errors.phone) setErrors((x) => ({ ...x, phone: undefined }));
+                    }}
+                    autoComplete="tel"
+                    placeholder="e.g. 98108 33429"
+                    aria-invalid={Boolean(errors.phone)}
+                    aria-describedby={errors.phone ? 'rsvp-phone-error' : undefined}
+                    className={`font-serif-body w-full rounded-[2px] border bg-[rgba(255,252,246,0.75)] px-3.5 py-3 text-[16px] text-[#3f3327] placeholder:text-[#a89883] transition-colors outline-none focus:border-[#a87932] focus:bg-[rgba(255,252,246,0.95)] ${
+                      errors.phone ? 'border-[#8f3b33]/70' : 'border-[#a87932]/40'
+                    }`}
+                  />
+                  <FieldError id="rsvp-phone-error">{errors.phone}</FieldError>
+                </div>
+
+                {/* 1c — EMAIL (optional) */}
+                <div className="mb-5">
+                  <FieldLabel htmlFor="rsvp-email" hint="optional">
+                    Email Address
+                  </FieldLabel>
+                  <input
+                    id="rsvp-email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      if (errors.email) setErrors((x) => ({ ...x, email: undefined }));
+                    }}
+                    autoComplete="email"
+                    placeholder="e.g. ananya@example.com"
+                    aria-invalid={Boolean(errors.email)}
+                    aria-describedby={errors.email ? 'rsvp-email-error' : undefined}
+                    className={`font-serif-body w-full rounded-[2px] border bg-[rgba(255,252,246,0.75)] px-3.5 py-3 text-[16px] text-[#3f3327] placeholder:text-[#a89883] transition-colors outline-none focus:border-[#a87932] focus:bg-[rgba(255,252,246,0.95)] ${
+                      errors.email ? 'border-[#8f3b33]/70' : 'border-[#a87932]/40'
+                    }`}
+                  />
+                  <FieldError id="rsvp-email-error">{errors.email}</FieldError>
                 </div>
 
                 {/* 2 — ATTENDANCE */}
@@ -450,22 +590,45 @@ export default function RsvpSection({ isNight = false }) {
                   </fieldset>
                 </div>
 
-                {/* 5 — MESSAGE */}
+                {/* 5 — MEAL PREFERENCE (meaningless when declining, so it hides) */}
+                <div className={`transition-all duration-500 ${declines ? 'pointer-events-none mb-0 max-h-0 overflow-hidden opacity-0' : 'mb-5 max-h-[20rem] opacity-100'}`} aria-hidden={declines}>
+                  <FieldLabel htmlFor="rsvp-meal" hint="optional">
+                    Meal Preference
+                  </FieldLabel>
+                  <div className="relative">
+                    <select
+                      id="rsvp-meal"
+                      value={meal}
+                      onChange={(e) => setMeal(e.target.value)}
+                      disabled={declines}
+                      className="font-serif-body w-full appearance-none rounded-[2px] border border-[#a87932]/40 bg-[rgba(255,252,246,0.75)] px-3.5 py-3 pr-10 text-[16px] text-[#3f3327] outline-none focus:border-[#a87932]"
+                    >
+                      {MEALS.map((m) => (
+                        <option key={m.key} value={m.key}>
+                          {m.label}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="pointer-events-none absolute top-1/2 right-3.5 h-4 w-4 -translate-y-1/2 text-[#a87932]" />
+                  </div>
+                </div>
+
+                {/* 5b — MESSAGE */}
                 <div className="mb-5">
-                  <FieldLabel htmlFor="rsvp-message" hint="optional">
+                  <FieldLabel htmlFor="rsvp-message" hint="dietary notes, requests or a blessing">
                     A Blessing or Message
                   </FieldLabel>
                   <textarea
                     id="rsvp-message"
                     rows={3}
-                    maxLength={500}
+                    maxLength={1000}
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
-                    placeholder="Your words of blessings…"
+                    placeholder="Your words of blessings, or any dietary requirement…"
                     className="font-serif-body w-full resize-y rounded-[2px] border border-[#a87932]/40 bg-[rgba(255,252,246,0.75)] px-3.5 py-3 text-[16px] leading-relaxed text-[#3f3327] placeholder:text-[#a89883] outline-none transition-colors focus:border-[#a87932] focus:bg-[rgba(255,252,246,0.95)]"
                   />
                   <p className="font-sans-clean mt-1 text-right text-[9px] tracking-[0.06em] text-[#a89883]">
-                    {message.length}/500
+                    {message.length}/1000
                   </p>
                 </div>
 

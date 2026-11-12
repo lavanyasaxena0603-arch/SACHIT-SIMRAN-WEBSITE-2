@@ -22,3 +22,15 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# ---- RSVP backend ----
+# The database IS the guest register. Never commit it; back it up instead.
+data/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+
+# Secrets. `.env.example` is committed; `.env` never is.
+.env
+.env.local
+.env.*.local

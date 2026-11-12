@@ -1,89 +1,123 @@
 /**
- * RSVP SUBMISSION
+ * RSVP SUBMISSION — the browser side of the real backend.
  *
- * HONESTY CONTRACT — this is the whole point of this file.
+ * WHAT CHANGED AND WHY
+ * --------------------
+ * This file used to write to `localStorage` and tell the guest "saved on this
+ * device". That was honest, but it meant a response never reached the couple.
+ * There is now a real server (`server/server.mjs`) with a durable SQLite
+ * database, so every response is POSTed to `/api/rsvp` and only reported as
+ * received on a 2xx.
  *
- * This project is a static Vite SPA. There is no `functions/`, no `api/`, no
- * server and no database. So there are exactly two possible outcomes when the
- * guest presses "Send Our Response", and the UI must never confuse them:
+ * NO localStorage ANYWHERE. Not as a fallback, not as a cache, not as a "just in
+ * case". A half-working local copy is how a response gets silently lost: the
+ * guest sees a thank-you, the couple sees nothing, and nobody finds out until
+ * the wedding.
  *
- *   1. An endpoint is configured (`VITE_RSVP_ENDPOINT`). We POST the response
- *      for real and only report success on a 2xx. If the request fails, the
- *      guest is told it failed — we do not swallow it and we do not pretend.
+ * THE THREE OUTCOMES THE UI MUST DISTINGUISH
+ * ------------------------------------------
+ *   1. `ok`        — the row is committed. Show the thank-you.
+ *   2. `duplicate` — this exact response was already stored. Also a success,
+ *                    worded so the guest isn't alarmed by pressing twice.
+ *   3. anything else — show the real reason and let them retry. Never claim it
+ *                    was received when it wasn't.
  *
- *   2. No endpoint is configured. The response is written to this device's
- *      localStorage and the success copy says so in plain words: saved on THIS
- *      DEVICE, not sent to the couple. Nothing is claimed that did not happen.
- *
- * To make responses actually reach the couple, set VITE_RSVP_ENDPOINT at build
- * time to a form endpoint that accepts a JSON POST — e.g. a Cloudflare Worker,
- * Formspree, or a Google Apps Script web app. Nothing else needs to change; the
- * form will start reporting "sent" the moment that variable exists.
+ * The client token is what makes (2) reliable: it is generated once per
+ * rendered form and reused for every retry of that form, so a double-tap or a
+ * flaky connection produces one row, not two.
  */
 
-const ENDPOINT = (import.meta.env.VITE_RSVP_ENDPOINT || '').trim();
-const LOCAL_KEY = 'simran-sachit-rsvp';
+const API = '/api/rsvp';
 
-export const hasRemoteEndpoint = Boolean(ENDPOINT);
-
-function readLocal() {
+/** A token that is stable for one rendered form. crypto.randomUUID where available. */
+export function makeClientToken() {
   try {
-    const raw = localStorage.getItem(LOCAL_KEY);
-    const list = raw ? JSON.parse(raw) : [];
-    return Array.isArray(list) ? list : [];
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
   } catch {
-    return [];
+    /* fall through */
+  }
+  return `t-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+/** Ask the server whether WhatsApp is wired up. Presence only — never secrets. */
+export async function fetchHealth(signal) {
+  try {
+    const res = await fetch('/api/health', { signal, headers: { Accept: 'application/json' } });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
   }
 }
 
 /**
- * @param {object} payload
- * @returns {Promise<{ok:boolean, stored:boolean, remote:boolean, message:string}>}
+ * @param {object} payload validated-by-the-server form values
+ * @param {object} opts
+ * @param {string} opts.clientToken stable per form render
+ * @param {number} opts.startedAt  epoch ms when the form was first shown
+ * @param {AbortSignal} [opts.signal]
+ * @returns {Promise<{ok:boolean, duplicate?:boolean, id?:string, submittedAtIst?:string,
+ *                    notification?:string, message:string, fields?:object}>}
  */
-export async function submitRsvp(payload) {
-  const record = { ...payload, submittedAt: new Date().toISOString() };
-
-  if (ENDPOINT) {
-    try {
-      const res = await fetch(ENDPOINT, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(record),
-      });
-
-      if (!res.ok) {
-        return {
-          ok: false,
-          stored: false,
-          remote: true,
-          message: `The response server replied with ${res.status}. Please try again in a moment.`,
-        };
-      }
-
-      return { ok: true, stored: true, remote: true, message: 'sent' };
-    } catch {
-      return {
-        ok: false,
-        stored: false,
-        remote: true,
-        message: 'We could not reach the response server. Please check your connection and try again.',
-      };
-    }
-  }
-
-  // ---- No endpoint: keep it on this device, and say so. ----
+export async function submitRsvp(payload, { clientToken, startedAt, signal } = {}) {
+  let res;
   try {
-    const list = readLocal();
-    list.push(record);
-    localStorage.setItem(LOCAL_KEY, JSON.stringify(list));
-    return { ok: true, stored: true, remote: false, message: 'local' };
-  } catch {
+    res = await fetch(API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      credentials: 'same-origin',
+      signal,
+      body: JSON.stringify({ ...payload, clientToken, startedAt }),
+    });
+  } catch (err) {
+    if (err?.name === 'AbortError') {
+      return { ok: false, message: 'The request was cancelled. Please try again.' };
+    }
     return {
       ok: false,
-      stored: false,
-      remote: false,
       message:
-        'Your browser blocked local storage, so this response could not be saved anywhere. Please try a different browser.',
+        'We could not reach the response server. Please check your connection and press Send Our Response again.',
     };
   }
+
+  let data = null;
+  try {
+    data = await res.json();
+  } catch {
+    data = null;
+  }
+
+  if (res.ok && data?.ok) {
+    return {
+      ok: true,
+      duplicate: Boolean(data.duplicate),
+      id: data.id || '',
+      submittedAtIst: data.submittedAtIst || '',
+      notification: data.notification || '',
+      message: data.message || 'Your response has been received.',
+    };
+  }
+
+  if (res.status === 422 && data?.fields) {
+    return {
+      ok: false,
+      fields: data.fields,
+      message: data.error || 'Please check the highlighted fields.',
+    };
+  }
+
+  if (res.status === 429) {
+    return {
+      ok: false,
+      message:
+        data?.error || 'That is a lot of responses in a short time. Please try again in a few minutes.',
+    };
+  }
+
+  return {
+    ok: false,
+    message:
+      data?.error ||
+      `The response server replied with ${res.status}. Please try again in a moment.`,
+  };
 }
