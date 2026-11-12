@@ -64,12 +64,23 @@ const password = makePassword(24);
  * Deliberately does not touch any other key, so your WhatsApp settings survive.
  */
 function setKey(src, key, value) {
-  const re = new RegExp(`^\\s*${key}\\s*=.*$`, 'm');
+  const re = new RegExp(`^[\\t ]*${key}[\\t ]*=.*$`, 'm');
   if (re.test(src)) return src.replace(re, `${key}=${value}`);
   return `${src.replace(/\s*$/, '')}\n${key}=${value}\n`;
 }
 
-const hadPassword = /^\s*ADMIN_PASSWORD\s*=\s*\S+/m.test(text);
+/**
+ * Is this key set to a real (non-blank) value?
+ *
+ * `\\s` is deliberately NOT used after the `=` — it matches newlines, which made
+ * `ADMIN_PASSWORD=` (blank, followed by another line) read as "already set" and
+ * silently skip generating a password. Only horizontal whitespace is allowed.
+ */
+function hasValue(src, key) {
+  return new RegExp(`^[\\t ]*${key}[\\t ]*=[\\t ]*\\S`, 'm').test(src);
+}
+
+const hadPassword = hasValue(text, 'ADMIN_PASSWORD');
 
 if (hadPassword && !rotate) {
   console.log('• ADMIN_PASSWORD already set — left untouched.');
@@ -102,8 +113,8 @@ if (process.platform !== 'win32') {
   }
 }
 
-const waToken = /^\s*WHATSAPP_ACCESS_TOKEN\s*=\s*\S+/m.test(text);
-const waPhoneId = /^\s*WHATSAPP_PHONE_NUMBER_ID\s*=\s*\S+/m.test(text);
+const waToken = hasValue(text, 'WHATSAPP_ACCESS_TOKEN');
+const waPhoneId = hasValue(text, 'WHATSAPP_PHONE_NUMBER_ID');
 console.log(
   waToken && waPhoneId
     ? '✓ WhatsApp credentials present'
