@@ -1,116 +1,80 @@
-import { useRef, useEffect } from 'react';
+import { useEffect } from 'react';
+import { initMusic, setMuted, unlock } from '../lib/musicController';
 
 /**
- * THE ONE SOUNDTRACK
+ * THE ONE SOUNDTRACK — React binding for src/lib/musicController.js
  *
- * One looping track for the whole invitation. It is mounted exactly once, by
- * <App />, above every scene — so it never restarts when the visitor moves from
- * the entrance to the story to the celebrations. The scenes themselves stay
- * silent: every <video> on the page is forced muted, so nothing competes with
- * this.
+ * This component deliberately owns NO audio element. The <audio> is a
+ * module-level singleton in the controller, created once for the lifetime of the
+ * page. That is what makes the guarantees on this site structural rather than
+ * hopeful:
  *
- * AUTOPLAY
- * --------
- * Browsers refuse to start audible audio without a user gesture, and they are
- * right to. So we try on mount, and if that is refused we simply wait for the
- * visitor's first interaction anywhere — the "Enter The Palace" button counts,
- * and so does a tap, a click or a key press. Whichever happens first starts it.
- * No prompt, no error, no console noise.
+ *   - navigating between scenes cannot restart the music, because nothing about
+ *     the music lives in a component's effect;
+ *   - mounting this twice (React StrictMode, or a future duplicate) cannot
+ *     create two soundtracks — both refs would point at the same element;
+ *   - the playhead survives mute/unmute, Day/Night, and the entrance hand-off.
  *
- * MUTING
- * ------
- * The global pill does not pause the track, it mutes it (`el.muted`), so
- * unmuting drops the visitor back into the music exactly where it had got to,
- * instead of restarting it from the top. Same principle as the Day/Night film
- * swap: one playhead, never reset.
+ * RESPONSIBILITIES HERE, AND ONLY HERE:
+ *   1. mount / unmount -> init the singleton
+ *   2. the isMuted prop -> the visitor's choice
+ *   3. the first user gesture -> iOS unlock
+ *   4. expose real playback state so the pill cannot lie about being muted
+ *
+ * `startedRef` used to live here and permanently stopped all retries after the
+ * first success. That is exactly why Android needed a second tap on the sound
+ * control. Recovery now lives in the controller, which always re-asserts
+ * playback after an interruption.
  */
 
-const TRACK = '/assets/audio/wedding-theme.mp3';
-
-// Deliberately below full scale: this sits under reading, on loop, for a whole
-// invitation. Loud enough to be felt, quiet enough to ignore.
-const TARGET_VOLUME = 0.45;
-const FADE_IN_MS = 1600;
+/** Real controller state, so the sound pill reflects the true audio state. */
 
 export default function AmbientMusic({ isMuted }) {
-  const audioRef = useRef(null);
-  const fadeRef = useRef(null);
-  const startedRef = useRef(false);
-
-  // Start playback (once) and fade it in from silence.
+  // 1. Create (or attach to) the single element. A failed first attempt before
+  //    any gesture is expected and is not surfaced anywhere.
   useEffect(() => {
-    const el = audioRef.current;
-    if (!el) return undefined;
-
-    el.volume = 0;
-
-    const fadeIn = () => {
-      if (fadeRef.current) return;
-      const step = 40;
-      const increment = TARGET_VOLUME / (FADE_IN_MS / step);
-      fadeRef.current = setInterval(() => {
-        const next = Math.min(TARGET_VOLUME, el.volume + increment);
-        el.volume = next;
-        if (next >= TARGET_VOLUME) {
-          clearInterval(fadeRef.current);
-          fadeRef.current = null;
-        }
-      }, step);
-    };
-
-    const attempt = () => {
-      const p = el.play();
-      if (p && typeof p.then === 'function') {
-        p.then(() => {
-          startedRef.current = true;
-          fadeIn();
-        }).catch(() => {
-          /* refused — the gesture listener below will try again */
-        });
-      }
-    };
-
-    attempt();
-
-    const onGesture = () => {
-      if (startedRef.current) return;
-      attempt();
-    };
-
-    // `once` is not used: a refused attempt does not consume the gesture, and
-    // several may fire before one succeeds.
-    window.addEventListener('pointerdown', onGesture, { passive: true });
-    window.addEventListener('keydown', onGesture);
-    window.addEventListener('touchstart', onGesture, { passive: true });
-
-    return () => {
-      window.removeEventListener('pointerdown', onGesture);
-      window.removeEventListener('keydown', onGesture);
-      window.removeEventListener('touchstart', onGesture);
-      if (fadeRef.current) clearInterval(fadeRef.current);
-    };
+    initMusic({ muted: isMuted });
+    // Intentionally not depending on isMuted: initialisation happens once, and
+    // the mute effect below owns the value from then on.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // The pill mutes, it does not stop.
+  // 2. The visitor's choice. Un-muting resumes the same playhead, and re-asserts
+  //    playback if the browser suspended the element (the Android defect).
   useEffect(() => {
-    const el = audioRef.current;
-    if (el) el.muted = isMuted;
+    setMuted(isMuted);
   }, [isMuted]);
+
+  // 3. iOS unlock. The "Enter The Palace" button is the gesture that matters,
+  //    but any earlier tap/click/keypress works too, and the controller keeps
+  //    listening so a later refusal can still be recovered. Listening here as
+  //    well makes the unlock immediate on the very same gesture rather than one
+  //    task later, which is the difference between iOS allowing it and not.
+  useEffect(() => {
+    const onGesture = () => unlock();
+    window.addEventListener('pointerdown', onGesture, { passive: true, capture: true });
+    window.addEventListener('touchstart', onGesture, { passive: true, capture: true });
+    window.addEventListener('keydown', onGesture, { capture: true });
+    return () => {
+      window.removeEventListener('pointerdown', onGesture, { capture: true });
+      window.removeEventListener('touchstart', onGesture, { capture: true });
+      window.removeEventListener('keydown', onGesture, { capture: true });
+    };
+  }, []);
 
   /*
     ONE SOURCE OF SOUND — ENFORCED.
 
-    Every <video> in this project is decorative footage, so none of them may
-    ever emit audio. Each one already carries `muted`, but scenes mount and
-    unmount as the visitor moves between the entrance, the story and the
-    celebrations, and a clip can be created, seeked or played by code long
-    after this component mounted. So the rule is enforced at runtime too:
+    Every <video> in this project is decorative footage, so none of them may emit
+    audio. Each already carries `muted`, but scenes mount and unmount as the
+    visitor moves between them, and a clip can be created, seeked or played by
+    code long after this component mounted. So the rule is enforced at runtime:
 
       - mute everything that exists now
-      - observe the document for videos added later, and mute those as well
+      - observe the document for videos added later, and mute those too
 
-    `muted` is a live property, so this cannot fight playback: it only removes
-    a video's audio track from the mix, never touches its playhead.
+    `muted` is a live property, so this never touches a playhead — it only
+    removes a video's audio track from the mix.
   */
   useEffect(() => {
     const silence = (el) => {
@@ -133,15 +97,6 @@ export default function AmbientMusic({ isMuted }) {
     return () => observer.disconnect();
   }, []);
 
-  return (
-    <audio
-      ref={audioRef}
-      src={TRACK}
-      loop
-      preload="auto"
-      playsInline
-      // Hidden by definition; the page has no transport controls of its own.
-      aria-hidden="true"
-    />
-  );
+  // No JSX: the audio element belongs to the controller, not to React's tree.
+  return null;
 }

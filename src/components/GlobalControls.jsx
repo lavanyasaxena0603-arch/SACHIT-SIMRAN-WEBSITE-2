@@ -1,4 +1,5 @@
-import { Sun, Moon, Volume2, VolumeX } from 'lucide-react';
+import { Sun, Moon, Volume2, VolumeX, Volume1 } from 'lucide-react';
+import { useMusicState, retryMusic } from '../lib/useMusic';
 
 /**
  * Global Day / Night + sound controls.
@@ -6,17 +7,59 @@ import { Sun, Moon, Volume2, VolumeX } from 'lucide-react';
  * There used to be a copy of these pills inside every scene header, which is
  * what made the site feel like separate slides. There is now exactly one pair,
  * rendered once by <App /> above every scene, so the mode is genuinely global.
+ *
+ * THE SOUND PILL DOES NOT GUESS.
+ * ------------------------------
+ * It used to render purely from the `isMuted` prop, so it could show "muted"
+ * while the browser had actually stopped the audio for its own reasons — and the
+ * visitor was left tapping a control that appeared to do nothing. It now reads
+ * the controller's live state as well:
+ *
+ *   muted            -> slashed speaker
+ *   playing          -> speaker
+ *   unmuted but not  -> speaker with a quiet "no signal" treatment, tappable to
+ *   actually playing    retry inside the gesture (iOS/Android require that)
  */
 export default function GlobalControls({ isNight, onToggleNight, isMuted, onToggleMute }) {
+  const music = useMusicState();
+
+  // The prop is the visitor's intent; `music.paused` is what the browser is
+  // actually doing. They can disagree after an interruption.
+  const wantsSound = !isMuted;
+  const silent = isMuted || (wantsSound && music.paused && music.needsGesture);
+
+  const handleSound = () => {
+    if (wantsSound && music.paused) {
+      // Sound is meant to be on but is not running. This tap is a gesture, so it
+      // is the right moment to re-assert playback rather than ask for a second
+      // tap on the mute control (the Android defect).
+      retryMusic();
+    }
+    onToggleMute();
+  };
+
+  const soundLabel = isMuted
+    ? 'Unmute'
+    : music.paused && music.needsGesture
+      ? 'Start the music'
+      : 'Mute';
+
   return (
     <div className="fixed top-4 safe-right sm:top-7 z-[60] flex items-center gap-2 sm:gap-2.5">
       <button
-        onClick={onToggleMute}
-        aria-label={isMuted ? 'Unmute' : 'Mute'}
-        title={isMuted ? 'Unmute' : 'Mute'}
+        onClick={handleSound}
+        aria-label={soundLabel}
+        aria-pressed={isMuted}
+        title={soundLabel}
         className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[#090e1c]/80 hover:bg-[#121a30]/90 border border-[#d4af37]/45 flex items-center justify-center text-[#dfba5c] backdrop-blur-md transition-all active:scale-95 shadow-[0_4px_18px_rgba(0,0,0,0.55)]"
       >
-        {isMuted ? <VolumeX className="w-4 h-4 text-[#e8a0a0]" /> : <Volume2 className="w-4 h-4" />}
+        {silent ? (
+          <VolumeX className="w-4 h-4 text-[#e8a0a0]" />
+        ) : wantsSound && music.paused ? (
+          <Volume1 className="w-4 h-4 text-[#dfba5c]/70" />
+        ) : (
+          <Volume2 className="w-4 h-4" />
+        )}
       </button>
 
       <button

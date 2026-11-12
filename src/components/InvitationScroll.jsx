@@ -913,9 +913,17 @@ function CountdownSection({ isNight, portrait }) {
         onEnter: () => {
           if (startedRef.current) return;
           startedRef.current = true;
-          video.currentTime = 0;
-          const p = video.play();
-          if (p && typeof p.catch === 'function') p.catch(() => {});
+          try {
+            video.currentTime = 0;
+          } catch {
+            /* poster-only; play() still works */
+          }
+          // Not a bare play(): retries through canplay/loadeddata, and if the
+          // film genuinely cannot start the dial still appears, so the visitor
+          // never stares at an empty medallion.
+          ensurePlaying(video).then((ok) => {
+            if (!ok) revealDial();
+          });
         },
         // Scrolled past before the clip finished: the visitor never saw the
         // ending, so put the dial in rather than leave an empty ring.
@@ -1172,9 +1180,15 @@ function WeddingSection() {
         onEnter: () => {
           if (armedRef.current) return;
           armedRef.current = true;
-          video.currentTime = 0;
-          const p = video.play();
-          if (p && typeof p.catch === 'function') p.catch(() => {});
+          try {
+            video.currentTime = 0;
+          } catch {
+            /* poster-only; play() still works */
+          }
+          // Retries through canplay/loadeddata instead of swallowing one
+          // rejection. The venue film is decorative: if it cannot start, the
+          // poster stays and the section is still fully readable.
+          ensurePlaying(video);
         },
         onLeaveBack: () => {
           armedRef.current = false;

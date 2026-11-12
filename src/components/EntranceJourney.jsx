@@ -1,6 +1,8 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Play } from 'lucide-react';
-import { swapThemeVideo, playSafely } from '../lib/videoSwap';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { Play, RotateCw } from 'lucide-react';
+import { swapThemeVideo, ensurePlaying } from '../lib/videoSwap';
+import { watchFilm } from '../lib/film';
+import { unlock as unlockMusic } from '../lib/musicController';
 import Monogram from './Monogram';
 
 /**
@@ -51,6 +53,11 @@ export default function EntranceJourney({ isNight, onComplete }) {
   const [showCard, setShowCard] = useState(true);
   const [phase, setPhase] = useState('gate');
   const [burst, setBurst] = useState(0);
+  // Shown only when the browser genuinely refuses to start the film — iOS Low
+  // Power Mode, a hardened autoplay policy, or a dead file. Without this the
+  // visitor sat in front of a frozen palace with no way forward, which is the
+  // exact defect that was reported.
+  const [needsTap, setNeedsTap] = useState(false);
 
   const dayGateRef = useRef(null);
   const nightGateRef = useRef(null);
@@ -60,6 +67,19 @@ export default function EntranceJourney({ isNight, onComplete }) {
   const entered = !showCard;
   const prevNightRef = useRef(isNight);
   const finishedRef = useRef(false);
+  // The gate may only hand over to the courtyard ONCE, no matter how many
+  // independent completion signals fire.
+  const gateDoneRef = useRef(false);
+  const watcherRef = useRef(null);
+
+  const activeGate = useCallback(
+    () => (isNight ? nightGateRef.current : dayGateRef.current),
+    [isNight],
+  );
+  const activeCourt = useCallback(
+    () => (isNight ? nightCourtRef.current : dayCourtRef.current),
+    [isNight],
+  );
 
   // EVERY clip on the page is silent.
   //
@@ -72,8 +92,190 @@ export default function EntranceJourney({ isNight, onComplete }) {
     for (const video of all) {
       if (!video) continue;
       video.muted = true;
+      // Belt and braces for iOS: `muted` set in React can race the first paint.
+      video.setAttribute('muted', '');
+      video.setAttribute('playsinline', '');
+      video.setAttribute('webkit-playsinline', '');
     }
   }, [isNight]);
+
+  /* ---------------- THE ADVANCE ----------------
+     Raised by every completion signal, and idempotent. Previously this was
+     attached solely to the `ended` event of a clip whose tail iOS can drop, so
+     a single missed event stranded the visitor permanently. */
+  const goToCourtyard = useCallback(() => {
+    if (gateDoneRef.current) return;
+    gateDoneRef.current = true;
+    if (watcherRef.current) {
+      watcherRef.current.stop();
+      watcherRef.current = null;
+    }
+
+    setPhase('courtyard');
+    setBurst(1);
+
+    const court = activeCourt();
+    if (court) {
+      try {
+        if (court.ended || court.currentTime > 0.05) court.currentTime = 0;
+      } catch {
+        /* poster-only state cannot seek; play() still works */
+      }
+      ensurePlaying(court);
+    }
+    setTimeout(() => setBurst(0), 900);
+  }, [activeCourt]);
+
+  const handleFinish = useCallback(() => {
+    if (finishedRef.current) return;
+    finishedRef.current = true;
+    if (watcherRef.current) {
+      watcherRef.current.stop();
+      watcherRef.current = null;
+    }
+    if (onComplete) onComplete();
+  }, [onComplete]);
+
+  /*
+    STABLE CALLBACK REFS.
+
+    The watcher below must never be torn down and rebuilt while a film is
+    running: a teardown during the gate would recreate exactly the freeze this
+    whole change exists to remove. But the handlers depend on things that change
+    as the page runs (the Day/Night theme picks a different <video>, and App
+    re-renders for unrelated reasons, giving `onComplete` a new identity).
+
+    So the watchers always call through these refs, and the effects that create
+    them depend only on genuine phase changes.
+  */
+  const cbRef = useRef({});
+  // Assigning refs during render is a React anti-pattern (and flagged by lint):
+  // a render that never commits would still mutate state the watchers read.
+  // Effects run in declaration order, so this lands before the watchers below
+  // are armed for the first time.
+  useEffect(() => {
+    cbRef.current = {
+      gate: activeGate,
+      court: activeCourt,
+      goToCourtyard,
+      handleFinish,
+    };
+  }, [activeGate, activeCourt, goToCourtyard, handleFinish]);
+
+  /*
+    Attach the completion watcher to whichever gate layer is actually on screen.
+
+    Idempotent by design: it stops any previous watcher first, so calling it on
+    arrival, after a Day/Night swap, and on re-entry to the phase all converge on
+    exactly one live watcher. It also re-checks immediately, because a clip can
+    reach its end between `play()` resolving and this line running.
+  */
+  const armGateWatcher = useCallback(() => {
+    const gate = cbRef.current.gate();
+    if (!gate || gateDoneRef.current) return;
+
+    if (watcherRef.current) watcherRef.current.stop();
+
+    watcherRef.current = watchFilm(gate, {
+      onEnd: () => cbRef.current.goToCourtyard(),
+      onBlocked: () => setNeedsTap(true),
+    });
+    watcherRef.current.recheck();
+  }, []);
+
+  /* ---------------- START THE GATE ----------------
+     The tap is the iOS unlock. `ensurePlaying` retries through `canplay`/
+     `loadeddata` instead of treating one rejected promise as "autoplay is
+     blocked", and only a real, persistent refusal raises the tap control. */
+  const startGate = useCallback(async () => {
+    const gate = cbRef.current.gate();
+    if (!gate) return;
+
+    setShowCard(false);
+
+    try {
+      if (gate.currentTime > 0.05 || gate.ended) gate.currentTime = 0;
+    } catch {
+      /* not seekable yet — playback still starts from the beginning */
+    }
+
+    const ok = await ensurePlaying(gate);
+    if (!ok) {
+      setNeedsTap(true);
+      return;
+    }
+
+    setNeedsTap(false);
+    armGateWatcher();
+  }, [armGateWatcher]);
+
+  const handleEnter = () => {
+    // The global controller also unlocks here; this call is fire-and-forget and
+    // never gates the transition (audio must not block video).
+    unlockMusic();
+    startGate();
+  };
+
+  /* The single owner of the gate watcher. Attaching to whichever gate layer is
+     actually on screen, and re-attaching after a theme swap, is what keeps the
+     completion signal attached to the film that is really playing. */
+  useEffect(() => {
+    if (!entered) return undefined;
+    if (phase !== 'gate') return undefined;
+    if (gateDoneRef.current) return undefined;
+
+    const gate = cbRef.current.gate();
+    if (!gate) return undefined;
+
+    // Nothing to watch until the visitor has started the film.
+    if (gate.paused && gate.currentTime === 0 && !gate.ended) return undefined;
+
+    armGateWatcher();
+
+    // Deliberately NOT depending on isNight: a theme swap re-arms the watcher
+    // itself (see the Day/Night effect), so a re-render must not tear one down.
+    return () => {
+      if (watcherRef.current) {
+        watcherRef.current.stop();
+        watcherRef.current = null;
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entered, phase, armGateWatcher]);
+
+  /* The courtyard owns its own watcher: it is the act that hands over to the
+     scroll story, so it must also be unable to miss its ending. */
+  useEffect(() => {
+    if (phase !== 'courtyard') return undefined;
+
+    const court = cbRef.current.court();
+    if (!court) return undefined;
+
+    const watcher = watchFilm(court, {
+      onEnd: () => cbRef.current.handleFinish(),
+      onBlocked: () => {
+        // The courtyard will not start. Rather than strand the guest behind a
+        // still frame, ask once more and then let the story open regardless —
+        // an audio/video failure must never block navigation.
+        ensurePlaying(court).then((ok) => {
+          if (!ok) cbRef.current.handleFinish();
+        });
+      },
+    });
+
+    return () => watcher.stop();
+  }, [phase]);
+
+  // Tidy up on unmount so no watcher survives the component.
+  useEffect(
+    () => () => {
+      if (watcherRef.current) {
+        watcherRef.current.stop();
+        watcherRef.current = null;
+      }
+    },
+    [],
+  );
 
   // Day/Night swap — only among the layers that are actually on screen.
   useEffect(() => {
@@ -92,37 +294,12 @@ export default function EntranceJourney({ isNight, onComplete }) {
         fromVideo: isNight ? dayGateRef.current : nightGateRef.current,
         toVideo: isNight ? nightGateRef.current : dayGateRef.current,
       });
+      // The visible gate layer just changed, so the completion watcher must
+      // follow it. Without this, a visitor who flipped the theme mid-gate would
+      // have a watcher on the now hidden film and would never advance.
+      armGateWatcher();
     }
-  }, [isNight, entered, phase]);
-
-  const handleEnter = async () => {
-    setShowCard(false);
-    const active = isNight ? nightGateRef.current : dayGateRef.current;
-    if (active) {
-      active.currentTime = 0;
-      await playSafely(active);
-    }
-  };
-
-  // Gate film finished -> raise the courtyard, which is already buffered.
-  const handleGateEnded = async () => {
-    if (phase !== 'gate') return;
-    setPhase('courtyard');
-    setBurst(1);
-
-    const court = isNight ? nightCourtRef.current : dayCourtRef.current;
-    if (court) {
-      if (court.ended || court.currentTime > 0.05) court.currentTime = 0;
-      await playSafely(court);
-    }
-    setTimeout(() => setBurst(0), 900);
-  };
-
-  const handleCourtyardEnded = () => {
-    if (finishedRef.current) return;
-    finishedRef.current = true;
-    if (onComplete) onComplete();
-  };
+  }, [isNight, entered, phase, armGateWatcher]);
 
   return (
     <div className="relative w-full h-[100dvh] overflow-hidden bg-[#040711] select-none font-serif-body">
@@ -164,7 +341,6 @@ export default function EntranceJourney({ isNight, onComplete }) {
         playsInline
         preload="auto"
         muted
-        onEnded={handleGateEnded}
         className={`absolute inset-0 w-full h-full object-cover object-center transition-opacity duration-700 ${
           entered && !isNight ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'
         }`}
@@ -175,7 +351,6 @@ export default function EntranceJourney({ isNight, onComplete }) {
         playsInline
         preload="auto"
         muted
-        onEnded={handleGateEnded}
         className={`absolute inset-0 w-full h-full object-cover object-center transition-opacity duration-700 ${
           entered && isNight ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'
         }`}
@@ -188,7 +363,6 @@ export default function EntranceJourney({ isNight, onComplete }) {
         playsInline
         preload="auto"
         muted
-        onEnded={handleCourtyardEnded}
         className={`absolute inset-0 w-full h-full object-cover object-center transition-opacity duration-700 ${
           phase === 'courtyard' && !isNight ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'
         }`}
@@ -199,7 +373,6 @@ export default function EntranceJourney({ isNight, onComplete }) {
         playsInline
         preload="auto"
         muted
-        onEnded={handleCourtyardEnded}
         className={`absolute inset-0 w-full h-full object-cover object-center transition-opacity duration-700 ${
           phase === 'courtyard' && isNight ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'
         }`}
@@ -298,6 +471,50 @@ export default function EntranceJourney({ isNight, onComplete }) {
           </button>
         </div>
       </div>
+
+      {/* ---------- PLAYBACK FALLBACK (only when the browser refuses) ----------
+          Autoplay is refused by iOS Low Power Mode and by hardened policies.
+          Previously that refusal left the visitor on a frozen palace with no
+          way to continue, which is the defect that was reported. This is the
+          honest answer: a single, on-brand control that starts the film inside
+          a real gesture — and, if the film still will not run, offers the way
+          onward so the invitation is never a dead end. */}
+      {needsTap && (
+        <div className="absolute inset-0 z-[45] flex items-center justify-center p-6 bg-[#04070f]/55 backdrop-blur-[2px]">
+          <div className="relative max-w-sm w-full p-7 sm:p-8 rounded-2xl bg-gradient-to-b from-[#101830]/96 via-[#0b1022]/96 to-[#050814]/98 border border-[#d4af37]/70 shadow-[0_30px_90px_rgba(0,0,0,0.9),inset_0_0_50px_rgba(212,175,55,0.12)] text-center flex flex-col items-center">
+            <div className="absolute top-3 left-3 w-4 h-4 border-t-2 border-l-2 border-[#d4af37]/80" />
+            <div className="absolute top-3 right-3 w-4 h-4 border-t-2 border-r-2 border-[#d4af37]/80" />
+            <div className="absolute bottom-3 left-3 w-4 h-4 border-b-2 border-l-2 border-[#d4af37]/80" />
+            <div className="absolute bottom-3 right-3 w-4 h-4 border-b-2 border-r-2 border-[#d4af37]/80" />
+
+            <p className="font-cinzel text-[9px] sm:text-[10px] tracking-[0.3em] uppercase text-[#dfba5c] mb-3">
+              One More Step
+            </p>
+            <p className="font-serif-body text-sm sm:text-base text-[#ece5d8] italic leading-relaxed mb-5">
+              Your device paused the entrance film. Tap below to begin the
+              royal welcome.
+            </p>
+
+            <button
+              onClick={handleEnter}
+              className="group relative inline-flex items-center gap-3 px-7 py-3 rounded-full bg-gradient-to-r from-[#ba8c22] via-[#e5c56c] to-[#ba8c22] text-[#060a15] font-cinzel font-bold text-[11px] tracking-[0.22em] uppercase shadow-[0_0_35px_rgba(212,175,55,0.5)] hover:shadow-[0_0_50px_rgba(212,175,55,0.7)] hover:scale-105 active:scale-95 transition-all duration-300"
+            >
+              <RotateCw className="w-3.5 h-3.5 transition-transform group-hover:rotate-180 duration-500" />
+              <span>Begin The Film</span>
+            </button>
+
+            {/* Escape hatch: the story must never be blocked by a video that
+                will not decode. This is deliberately quieter than the control
+                above — a fallback, not an invitation. */}
+            <button
+              onClick={handleFinish}
+              className="mt-4 font-sans-clean text-[9px] tracking-[0.24em] uppercase text-[#b9b09c] hover:text-[#e8dcbb] transition-colors underline underline-offset-4 decoration-[#d4af37]/40"
+            >
+              Continue to the invitation
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
