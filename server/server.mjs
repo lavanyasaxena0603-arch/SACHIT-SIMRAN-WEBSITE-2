@@ -66,6 +66,28 @@ const MAX_BODY = 32 * 1024;
  * vectors. 'unsafe-inline' is required for style because Tailwind/GSAP set inline
  * styles at runtime — removing it would silently break the animations.
  */
+/**
+ * Framing policy for the PUBLIC invitation page.
+ *
+ * The Genspark Preview pane renders the site inside an <iframe>. An unconditional
+ * `X-Frame-Options: DENY` / `frame-ancestors 'none'` — correct for the admin page —
+ * makes that pane show a blank "sad face" because the browser refuses to paint it.
+ *
+ * So the public page allows embedding by the preview host while developing, and
+ * locks down in production. The ADMIN page is a separate header block below and
+ * keeps DENY unconditionally: it carries a session cookie and guest records, and
+ * must never be framable.
+ *
+ * Override with FRAME_ANCESTORS (a CSP source list) if you embed the invitation
+ * somewhere else, e.g. FRAME_ANCESTORS="'self' https://example.com".
+ */
+function pageFrameAncestors() {
+  const explicit = process.env.FRAME_ANCESTORS;
+  if (explicit) return explicit;
+  if (config.nodeEnv === 'production') return "'none'";
+  return "'self' https://www.genspark.ai https://*.genspark.ai";
+}
+
 const PAGE_HEADERS = {
   'Content-Security-Policy': [
     "default-src 'self'",
@@ -78,9 +100,11 @@ const PAGE_HEADERS = {
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",
-    "frame-ancestors 'none'",
+    `frame-ancestors ${pageFrameAncestors()}`,
   ].join('; '),
-  'X-Frame-Options': 'DENY',
+  // Deliberately NOT sending X-Frame-Options here: it has no wildcard support, so
+  // any value that permits the preview host would also defeat the purpose. The CSP
+  // frame-ancestors directive above is the modern, precise control.
   'Cross-Origin-Opener-Policy': 'same-origin',
 };
 

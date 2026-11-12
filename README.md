@@ -745,3 +745,4 @@ reads `X-Forwarded-For` for rate limiting and sets `Secure` cookies under
 | WhatsApp rows stay `pending` | Credentials missing, or the 24-hour window closed (see error `131047` → create a template). |
 | `ExperimentalWarning: SQLite is an experimental feature` | Expected on Node 22. Harmless. |
 | Fonts look wrong offline | Google Fonts needs a network connection on first paint. |
+| Blank pane / sad face in an embedded preview | The page is being iframed and framing is blocked. In development the Genspark preview host is allowed automatically; elsewhere set `FRAME_ANCESTORS` to include the embedding origin. The admin page stays unframable by design. |
