@@ -9,25 +9,62 @@ whole scene recolours in place without ever disturbing the scroll position.
 
 ---
 
+## Requirements
+
+| | |
+|---|---|
+| **Node.js** | **22.5 or newer** (required — the backend uses the built-in `node:sqlite`) |
+| Tested on | Node 22.23.4, npm 10.9.9 |
+| OS | Windows, macOS, Linux — no native modules, no compiler needed |
+| Network | needed on first paint, because the fonts come from Google Fonts |
+
+> The database uses Node's built-in `node:sqlite`, so there is **nothing to compile**
+> and no native dependency to install. You will see an `ExperimentalWarning` for
+> SQLite on startup — that is expected and harmless.
+
+---
+
 ## Quick start
 
 ```bash
-npm install
-npm run dev        # http://localhost:3000
+npm install          # dependencies (no native builds)
+npm run setup        # creates .env and prints your admin password ONCE
+npm run dev          # site on http://localhost:5173, API on :3000
 ```
 
-Other scripts:
+Then open **http://localhost:5173**.
 
-```bash
-npm run build      # production build into dist/
-npm run preview    # serve the built dist/
-npm run lint       # oxlint
-```
+`npm run dev` starts **both** processes and proxies `/api` to the backend, so the
+frontend needs no URL configuration and there is no CORS to negotiate. Ctrl+C stops
+both.
 
-Requires Node 18+ (Node 20+ recommended). Fonts load from Google Fonts at runtime, so
-the page needs a network connection on first paint.
+### Scripts
 
----
+| Command | What it does |
+|---|---|
+| `npm run setup` | Creates `.env` from the template and generates `ADMIN_PASSWORD`, `ADMIN_SESSION_SECRET`, `RSVP_IP_HASH_SALT`. `-- --rotate` replaces the password and signs out all admin sessions. |
+| `npm run dev` | Dev server + backend together (hot reload). Site `:5173`, admin `:3000/admin`. |
+| `npm run dev:client` | Vite only, if you want to run the backend separately. |
+| `npm run dev:server` | Backend only. |
+| `npm run build` | Production build into `dist/`. |
+| `npm start` | Production server: serves `dist/` **and** `/api` from one process on `:3000`. |
+| `npm run serve` | `build` then `start`, in one step. |
+| `npm run lint` | oxlint (104 rules). |
+| `npm run test:rsvp` | Full backend test suite — 112 assertions. |
+| `npm run db:backup` | Consistent SQLite snapshot into `data/backups/`. |
+| `npm run db:seed-demo` | Insert fake demo RSVPs (refuses to touch a database with real rows). |
+
+### Local URLs
+
+| | |
+|---|---|
+| Website (dev) | http://localhost:5173 |
+| Website (production build) | http://localhost:3000 |
+| Admin dashboard | http://localhost:3000/admin |
+| API health | http://localhost:3000/api/health |
+
+Ports come from `.env` (`PORT`, `WEB_PORT`), so a clash is a config change rather
+than a code change.
 
 ## Stack
 
@@ -305,27 +342,61 @@ invitation-card seal.
 ```
 .
 ├── index.html                  # fonts + root mount
-├── vite.config.js
-├── ecosystem.config.cjs        # PM2 config (script mode, used in the sandbox)
-├── public/
+├── vite.config.js              # dev server + /api proxy to the backend
+├── package.json
+├── .env.example                # every variable, placeholders only
+│
+├── public/                     # copied verbatim into dist/ by Vite
 │   ├── favicon.svg
 │   └── assets/
 │       ├── scene1/   palace stills + gate films (day/night)
 │       ├── scene2/   courtyard films + their real final frames
 │       ├── scene3/   welcome backdrops (day/night)
 │       ├── couple/   bride/groom portraits + palace backdrops
-│       └── scene5/   story day/night films + their posters
-└── src/
-    ├── main.jsx
-    ├── App.jsx                 # stage machine, isNight, isMuted
-    ├── index.css               # theme tokens + font utility classes
-    ├── components/
-    │   ├── EntranceJourney.jsx # card, gate film, courtyard film
-    │   ├── ScrollStory.jsx     # welcome + couple + story, one scroll stage
-    │   ├── GlobalControls.jsx  # single Day/Night + mute pair
-    │   └── Monogram.jsx        # SVG house mark
-    └── lib/
-        └── videoSwap.js        # playhead-preserving day/night swap
+│       ├── scene5/   story day/night films + their posters
+│       └── audio/    ambient music
+│
+├── src/
+│   ├── main.jsx
+│   ├── App.jsx                 # stage machine, isNight, isMuted
+│   ├── index.css               # theme tokens + font utility classes
+│   ├── components/
+│   │   ├── EntranceJourney.jsx    # card, gate film, courtyard film
+│   │   ├── InvitationScroll.jsx   # the seven-section scroll story
+│   │   ├── CelebrationJourney.jsx # elephant welcome
+│   │   ├── FinaleSection.jsx      # finale film, signature, exit
+│   │   ├── ScrollStory.jsx        # welcome + couple + story stage
+│   │   ├── RsvpSection.jsx        # the RSVP form
+│   │   ├── GlobalControls.jsx     # Day/Night + mute pair
+│   │   ├── GoldenThread.jsx       # the gold thread
+│   │   └── Monogram.jsx           # SVG house mark
+│   └── lib/
+│       ├── videoSwap.js        # playhead-preserving day/night swap
+│       └── rsvp.js             # API client (no localStorage)
+│
+├── server/                     # the backend — plain Node, no framework
+│   ├── server.mjs              # entry: HTTP server, routes, security headers
+│   ├── env.mjs                 # .env loader, phone normalisation, config
+│   ├── validate.mjs            # server-side validation + sanitisation
+│   ├── db.mjs                  # SQLite schema, queries, notification bookkeeping
+│   ├── whatsapp.mjs            # official Meta Cloud API client
+│   ├── notify.mjs              # retry queue, atomic send claim
+│   ├── auth.mjs                # HMAC session cookies, constant-time password check
+│   ├── admin-page.mjs          # password-gated admin UI (self-contained HTML)
+│   └── static.mjs              # Range/206 static file serving
+│
+├── scripts/
+│   ├── dev.mjs                 # `npm run dev` — both processes, one command
+│   ├── setup.mjs               # generates .env + admin password
+│   ├── db-backup.mjs           # VACUUM INTO snapshot
+│   └── seed-demo.mjs           # fake RSVPs for testing the admin view
+│
+├── test/
+│   └── rsvp-suite.mjs          # 112 assertions, mock Graph API
+│
+└── data/                       # git-ignored — the live guest register
+    ├── rsvp.sqlite
+    └── backups/
 ```
 
 ### Design tokens
@@ -369,12 +440,12 @@ Kept in `src/index.css` and used throughout:
 
 ## Known gaps
 
-- **Details & RSVP section** — not built. Needs the real date, venue, timings, and the
-  RSVP destination (phone/WhatsApp or a form).
 - **Scene 3 → Scene 4 fade** — currently a backdrop dissolve; an explicit extra crossfade
   was not added.
 - `dist/` and `node_modules/` are not in the repository — regenerate with
   `npm install && npm run build`.
+- WhatsApp delivery needs real Meta credentials; without them RSVPs still persist and are
+  queued as `pending` (see *WhatsApp configuration*).
 
 ---
 
@@ -487,3 +558,190 @@ prevention — plus honeypot/bot filtering, CSV BOM, path traversal, Range servi
 for iOS video and restart persistence. WhatsApp is exercised end-to-end against a
 mock Graph endpoint: the real code path runs, but the mock cannot prove Meta will
 accept a token.
+
+### Environment configuration
+
+Copy the template and fill it in — or just run `npm run setup`, which creates `.env`
+and generates the credentials for you:
+
+```bash
+cp .env.example .env
+```
+
+| Variable | Required | Purpose |
+|---|---|---|
+| `PORT` | no | Backend port (default `3000`) |
+| `WEB_PORT` | no | Vite dev port (default `5173`) |
+| `RSVP_DB_PATH` | no | SQLite file path (default `data/rsvp.sqlite`) |
+| `ADMIN_PASSWORD` | **yes** | Unlocks `/admin`. Generated by `npm run setup`. |
+| `ADMIN_SESSION_SECRET` | recommended | Signs the admin cookie. Rotating it signs everyone out. |
+| `ADMIN_SESSION_HOURS` | no | Session lifetime (default `12`) |
+| `WHATSAPP_RECIPIENT_NUMBER` | for sending | **Your** number, country code, digits only |
+| `WHATSAPP_ACCESS_TOKEN` | for sending | Meta system-user token |
+| `WHATSAPP_PHONE_NUMBER_ID` | for sending | Phone number **ID** of the sending number |
+| `WHATSAPP_BUSINESS_ACCOUNT_ID` | optional | Not needed to send |
+| `WHATSAPP_TEMPLATE_NAME` | production | Approved template name (see below) |
+| `RSVP_RATE_LIMIT` / `RSVP_RATE_WINDOW_MS` | no | Submissions per IP per window |
+| `RSVP_IP_HASH_SALT` | recommended | Salt for hashing visitor IPs |
+
+`.env` is git-ignored and is **not** included in the downloadable ZIP. Real process
+environment variables always win over the file, so a host's dashboard settings
+override it without editing anything.
+
+### Database initialisation
+
+There is no migration step. On first start the server creates `data/rsvp.sqlite`,
+the `rsvp` table, the `notification_log` table and their indexes — see
+`server/db.mjs` for the full schema. Startup uses `CREATE TABLE IF NOT EXISTS`, so
+an existing database is opened, **never** reset or overwritten.
+
+To start from a clean, throwaway register (useful for testing):
+
+```bash
+RSVP_DB_PATH=data/demo.sqlite npm start
+```
+
+### Backing up and restoring
+
+```bash
+npm run db:backup        # → data/backups/rsvp_<timestamp>.sqlite
+```
+
+This uses SQLite's `VACUUM INTO`, which produces a consistent, fully-merged copy
+even while the server is running (copying the `.sqlite` alone can miss recent
+writes that are still in the `-wal` sidecar).
+
+**Restore:**
+
+```bash
+# 1. stop the server
+# 2. replace the database
+cp data/backups/rsvp_2026-11-12_07-05-30.sqlite data/rsvp.sqlite
+# 3. remove stale sidecars, or SQLite may replay them over your restore
+rm -f data/rsvp.sqlite-wal data/rsvp.sqlite-shm
+# 4. start again
+npm start
+```
+
+Take a backup before any change you might want to undo, and keep a copy off the
+machine — the database is the register.
+
+### Accessing the admin dashboard
+
+```
+http://localhost:3000/admin
+```
+
+Enter the password printed by `npm run setup`. It shows total responses, confirmed
+attendees including accompanying guests, the accepts/declines split, every response
+with its full details and notification status, search by name or mobile, a manual
+retry for failed notifications, and CSV export.
+
+Security: the password is checked in constant time, the session is a signed
+`HttpOnly`, `SameSite=Strict` cookie, every `/api/admin/*` route returns `401`
+without one, and the page is served with a strict CSP, `X-Frame-Options: DENY` and
+`X-Robots-Tag: noindex`. None of it is reachable from the public site.
+
+### Testing RSVP submissions
+
+The quickest way to exercise the admin view is demo data:
+
+```bash
+npm run db:seed-demo     # 5 fake RSVPs, prefixed "DEMO"
+npm run db:seed-demo -- --purge   # remove them again
+```
+
+It refuses to run against a database that already contains real responses unless
+you pass `--force`, so demo rows cannot contaminate the live register.
+
+To submit through the real form, open the site, scroll to the RSVP section, and fill
+it in. The response is written to SQLite **before** any WhatsApp attempt, and the
+guest sees their RSVP ID and an IST timestamp.
+
+The automated suite covers all seven required scenarios:
+
+```bash
+npm run test:rsvp
+```
+
+It starts its own server on port `3999` against a throwaway database, with a mock
+Graph endpoint, and never touches your real register or your running dev server.
+
+### WhatsApp configuration
+
+1. Create a **Meta Business** account and a **WhatsApp Business Account**.
+2. Add a phone number → copy its **Phone number ID** into `WHATSAPP_PHONE_NUMBER_ID`.
+   (This is the ID of the number that *sends*, not your personal number.)
+3. Create a **permanent** System User token with `whatsapp_business_messaging`
+   permission → `WHATSAPP_ACCESS_TOKEN`.
+4. Set `WHATSAPP_RECIPIENT_NUMBER` to the number that should *receive* the alerts.
+
+If the token or phone-number ID is missing, everything still works: RSVPs persist,
+the admin view shows them as `pending`, and `/api/health` reports
+`whatsapp.configured: false` with the missing variable names. The site never claims
+a message was delivered.
+
+**Free-form vs template.** A business may only send free-form text within 24 hours
+of the guest messaging first. RSVP alerts are business-initiated, so in production
+Meta will eventually reject free-form with error `131047`. Create a **UTILITY**
+template whose body is:
+
+```
+💌 NEW WEDDING RSVP RECEIVED
+
+{{1}}
+```
+
+Then set `WHATSAPP_TEMPLATE_NAME` (and `WHATSAPP_TEMPLATE_LANG`). The backend
+switches to template mode automatically and passes the whole formatted message as
+`{{1}}`.
+
+### Production build and run
+
+```bash
+npm run build     # → dist/
+npm start         # serves dist/ + /api on :3000
+```
+
+Or both at once: `npm run serve`.
+
+`dist/` is a static bundle, but **the site is not purely static** — `/api/rsvp`,
+`/admin` and the notification queue need the Node process. Deploy the Node server,
+not just `dist/`.
+
+### Deployment prerequisites
+
+| Requirement | Detail |
+|---|---|
+| Runtime | **Node.js ≥ 22.5** with `node:sqlite` |
+| Persistent disk | required — the SQLite file is the register |
+| Long-running process | required — the retry queue uses a 60s timer |
+| Memory | ~100–200 MB |
+| Build command | `npm run build` |
+| Start command | `npm start` |
+| Env vars | everything in the table above |
+
+Platforms that fit: Railway, Render, Fly.io, a VPS, or any container host. Platforms
+that **do not** fit a serverless/serverless-function model (Vercel/Netlify functions,
+Cloudflare Workers) without porting the backend to a hosted database — the filesystem
+SQLite, the in-process retry timer and long-lived HTTP server have no equivalent
+there. A static-only host will serve the invitation but lose RSVP entirely.
+
+Put the site behind HTTPS. If you terminate TLS at a proxy, the backend already
+reads `X-Forwarded-For` for rate limiting and sets `Secure` cookies under
+`NODE_ENV=production`.
+
+### Troubleshooting
+
+| Symptom | Cause and fix |
+|---|---|
+| `Error: Cannot find module 'node:sqlite'` | Node is older than 22.5. `node -v`, then upgrade. |
+| `EADDRINUSE` on start | Something already holds the port. Change `PORT` in `.env`, or stop the other process. |
+| Page loads but RSVP says "network" | Backend isn't running. In dev, use `npm run dev` (starts both), not `npm run dev:client` alone. |
+| `/admin` shows "not configured" | `ADMIN_PASSWORD` is empty. Run `npm run setup`. |
+| Admin login fails after restart | You rotated `ADMIN_SESSION_SECRET` or `ADMIN_PASSWORD` — sign in with the new password. |
+| Videos don't play, or seek badly | `dist/` is stale. `npm run build`, and confirm the browser supports MP4/H.264. |
+| Blank page after deploy | Only `dist/` was uploaded. Deploy the Node server so the SPA fallback and `/api` exist. |
+| WhatsApp rows stay `pending` | Credentials missing, or the 24-hour window closed (see error `131047` → create a template). |
+| `ExperimentalWarning: SQLite is an experimental feature` | Expected on Node 22. Harmless. |
+| Fonts look wrong offline | Google Fonts needs a network connection on first paint. |

@@ -142,11 +142,12 @@ export function validateRsvp(raw) {
   else if (declines) events = [];
   else if (!events.length) errors.events = 'Please choose at least one celebration.';
 
-  /* ---- meal preference (optional; meaningless when declining) ---- */
-  let meal = clean(body.meal, 40).toLowerCase();
-  if (declines) meal = '';
-  else if (meal && !MEALS[meal]) meal = 'no-preference';
-  if (!meal && !declines) meal = 'no-preference';
+  /* ---- meal preference: NO LONGER COLLECTED ----
+     The couple removed this question from the guest form. We deliberately IGNORE
+     any `meal` value a client might still send, so the field cannot be re-opened
+     by a stale cached bundle or a hand-crafted POST. New rows store '', while the
+     `meal_preference` column is retained so RSVPs collected earlier (and the
+     admin view that renders them) keep working untouched. */
 
   /* ---- free text ---- */
   const message = clean(body.message ?? body.specialRequests, LIMITS.message);
@@ -164,7 +165,7 @@ export function validateRsvp(raw) {
       attendance,
       guests: declines ? 0 : guests,
       events,
-      meal: declines ? '' : meal,
+      meal: '', // retired question — always blank on new submissions
       message,
     },
   };

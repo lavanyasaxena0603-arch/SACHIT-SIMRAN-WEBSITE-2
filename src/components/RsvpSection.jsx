@@ -37,14 +37,6 @@ const ATTENDANCE = [
   { key: 'declines', label: 'Regretfully Declines' },
 ];
 
-const MEALS = [
-  { key: 'vegetarian', label: 'Vegetarian' },
-  { key: 'non-vegetarian', label: 'Non-Vegetarian' },
-  { key: 'jain', label: 'Jain' },
-  { key: 'vegan', label: 'Vegan' },
-  { key: 'no-preference', label: 'No preference' },
-];
-
 /* Client-side validation. This is a COURTESY that saves a round-trip — the
    server re-validates everything and is the only authority. The rules are kept
    deliberately in step with server/validate.mjs so a guest never sees a green
@@ -113,7 +105,6 @@ export default function RsvpSection({ isNight = false }) {
   const [attendance, setAttendance] = useState('');
   const [guests, setGuests] = useState('2');
   const [events, setEvents] = useState([]);
-  const [meal, setMeal] = useState('no-preference');
   const [message, setMessage] = useState('');
   const [errors, setErrors] = useState({});
   const [status, setStatus] = useState('idle'); // idle | sending | done | failed
@@ -195,7 +186,6 @@ export default function RsvpSection({ isNight = false }) {
         attendance,
         guests: declines ? 0 : Number(guests),
         events: declines ? [] : events,
-        meal: declines ? '' : meal,
         message: message.trim(),
       },
       { clientToken: tokenRef.current, startedAt: startedAtRef.current },
@@ -590,30 +580,9 @@ export default function RsvpSection({ isNight = false }) {
                   </fieldset>
                 </div>
 
-                {/* 5 — MEAL PREFERENCE (meaningless when declining, so it hides) */}
-                <div className={`transition-all duration-500 ${declines ? 'pointer-events-none mb-0 max-h-0 overflow-hidden opacity-0' : 'mb-5 max-h-[20rem] opacity-100'}`} aria-hidden={declines}>
-                  <FieldLabel htmlFor="rsvp-meal" hint="optional">
-                    Meal Preference
-                  </FieldLabel>
-                  <div className="relative">
-                    <select
-                      id="rsvp-meal"
-                      value={meal}
-                      onChange={(e) => setMeal(e.target.value)}
-                      disabled={declines}
-                      className="font-serif-body w-full appearance-none rounded-[2px] border border-[#a87932]/40 bg-[rgba(255,252,246,0.75)] px-3.5 py-3 pr-10 text-[16px] text-[#3f3327] outline-none focus:border-[#a87932]"
-                    >
-                      {MEALS.map((m) => (
-                        <option key={m.key} value={m.key}>
-                          {m.label}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown className="pointer-events-none absolute top-1/2 right-3.5 h-4 w-4 -translate-y-1/2 text-[#a87932]" />
-                  </div>
-                </div>
-
-                {/* 5b — MESSAGE */}
+                {/* 5 — MESSAGE (the meal-preference question was removed at the
+                    couple's request; the DB column is retained so existing RSVPs
+                    and the admin view keep working unchanged). */}
                 <div className="mb-5">
                   <FieldLabel htmlFor="rsvp-message" hint="dietary notes, requests or a blessing">
                     A Blessing or Message

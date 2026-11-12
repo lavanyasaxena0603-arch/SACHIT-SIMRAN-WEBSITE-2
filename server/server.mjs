@@ -57,6 +57,33 @@ import { adminHtml } from './admin-page.mjs';
 const DIST = resolve(ROOT, 'dist');
 const MAX_BODY = 32 * 1024;
 
+/**
+ * Security headers for the public invitation page.
+ *
+ * The CSP is deliberately explicit rather than a lazy `*`: the page loads its own
+ * bundle, the fonts declared in index.html, and nothing else. `frame-ancestors
+ * 'none'` + X-Frame-Options stop clickjacking; `object-src 'none'` kills plugin
+ * vectors. 'unsafe-inline' is required for style because Tailwind/GSAP set inline
+ * styles at runtime — removing it would silently break the animations.
+ */
+const PAGE_HEADERS = {
+  'Content-Security-Policy': [
+    "default-src 'self'",
+    "script-src 'self'",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src 'self' https://fonts.gstatic.com data:",
+    "img-src 'self' data: blob:",
+    "media-src 'self' blob:",
+    "connect-src 'self'",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'none'",
+  ].join('; '),
+  'X-Frame-Options': 'DENY',
+  'Cross-Origin-Opener-Policy': 'same-origin',
+};
+
 /* ------------------------------------------------------------------ helpers */
 
 function send(res, status, body, headers = {}) {
@@ -501,7 +528,7 @@ export function createRsvpServer() {
     // SPA fallback for any non-file path (there is only one route).
     const index = resolve(DIST, 'index.html');
     if (fileExists(index)) {
-      if (serveFile(req, res, index)) return undefined;
+      if (serveFile(req, res, index, { extraHeaders: PAGE_HEADERS })) return undefined;
     }
     return json(res, 404, { error: 'Not found. Build the site first: npm run build' });
   });

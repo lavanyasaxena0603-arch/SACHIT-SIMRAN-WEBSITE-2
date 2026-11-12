@@ -31,9 +31,14 @@ import { labels } from './validate.mjs';
 export function buildMessage(record) {
   const l = labels(record);
   const events = l.events === '—' ? 'Not attending' : l.events;
-  const meal = l.meal === '—' ? 'Not applicable' : l.meal;
   const email = record.email || '—';
   const special = record.special_requests || '—';
+
+  // The meal-preference question was retired, so new RSVPs store ''. Rather than
+  // printing an empty "Meal Preference:" line, the line is omitted entirely when
+  // there is no value. Legacy rows still hold a real preference and are rendered
+  // exactly as before, so nothing already collected loses information.
+  const mealLine = l.meal && l.meal !== '—' ? [`Meal Preference: ${l.meal}`, ''] : [];
 
   return [
     '💌 NEW WEDDING RSVP RECEIVED',
@@ -48,8 +53,7 @@ export function buildMessage(record) {
     `Total Guests: ${record.guest_count}`,
     '',
     `Events Attending: ${events}`,
-    `Meal Preference: ${meal}`,
-    '',
+    ...mealLine,
     'Special Requests:',
     special,
     '',

@@ -83,7 +83,7 @@ export function fileExists(p) {
  * Serve one file. Honours Range, HEAD, conditional GET and correct MIME.
  * @returns {boolean} true when a response was written
  */
-export function serveFile(req, res, filePath, { cacheBust = false } = {}) {
+export function serveFile(req, res, filePath, { cacheBust = false, extraHeaders = {} } = {}) {
   let st;
   try {
     st = statSync(filePath);
@@ -107,6 +107,8 @@ export function serveFile(req, res, filePath, { cacheBust = false } = {}) {
         ? 'public, max-age=31536000, immutable'
         : 'no-cache',
     'X-Content-Type-Options': 'nosniff',
+    'Referrer-Policy': 'no-referrer',
+    ...extraHeaders,
   };
 
   if (req.headers['if-none-match'] === etag) {

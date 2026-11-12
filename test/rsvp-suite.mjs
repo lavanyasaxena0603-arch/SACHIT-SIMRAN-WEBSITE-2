@@ -132,7 +132,6 @@ function rsvpBody(over = {}) {
     attendance: 'accepts',
     guests: 2,
     events: ['wedding'],
-    meal: 'vegetarian',
     message: '',
     clientToken: `tok-${Math.random().toString(36).slice(2)}`,
     startedAt: Date.now() - 60_000,
@@ -258,7 +257,7 @@ async function main() {
     ok('message has guest count', c1.text?.includes('Total Guests: 3'));
     ok('message lists both events',
       c1.text?.includes('The Engagement') && c1.text?.includes('The Wedding'));
-    ok('message has meal', c1.text?.includes('Meal Preference: Vegetarian'));
+    ok('message omits the retired meal question', !c1.text?.includes('Meal Preference'));
     ok('message has RSVP ID', c1.text?.includes(t1.body.id));
     ok('message has IST timestamp', c1.text?.includes('IST'));
     ok('message has the closing line',
@@ -275,7 +274,6 @@ async function main() {
         attendance: 'declines',
         guests: 0,
         events: [],
-        meal: '',
         message: 'So sorry, we will be travelling.',
       }),
     );
@@ -304,14 +302,13 @@ async function main() {
       rsvpBody({
         name: 'Meera Iyer',
         message: 'Jain meal please — no onion, no garlic.\nAlso a high chair for our toddler.',
-        meal: 'jain',
       }),
     );
     ok('stored', t4.status === 201);
     await new Promise((r) => setTimeout(r, 700));
     const txt4 = wa.calls[0]?.text || '';
     ok('multi-line message preserved', txt4.includes('no onion, no garlic.\nAlso a high chair'));
-    ok('jain preference sent', txt4.includes('Meal Preference: Jain'));
+    ok('jain request survives in the message', txt4.includes('Jain meal please'));
 
     /* ============================================================ TEST 5 === */
     console.log('\nTEST 5 — invalid / incomplete submissions are rejected');
@@ -456,7 +453,6 @@ async function main() {
       attendance: 'accepts',
       guests: 2,
       events: ['wedding'],
-      meal: 'vegetarian',
       message: '',
       startedAt: Date.now() - 30_000,
     };
