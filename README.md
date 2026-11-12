@@ -375,3 +375,115 @@ Kept in `src/index.css` and used throughout:
   was not added.
 - `dist/` and `node_modules/` are not in the repository — regenerate with
   `npm install && npm run build`.
+
+---
+
+## RSVP backend, database and WhatsApp notifications
+
+The invitation itself is unchanged. The RSVP form now posts to a real backend that
+persists every response and forwards it to WhatsApp through **Meta's official
+WhatsApp Business Cloud API**.
+
+### Run it
+
+```bash
+npm run build          # build the SPA into dist/
+npm start              # Node server on :3000 — serves dist/ AND /api/*
+```
+
+`npm start` (`node server/server.mjs`) is the single process: it serves the built
+site, the RSVP API and the private admin view.
+
+### Database
+
+Persistent **SQLite** via Node 22's built-in `node:sqlite` — no native modules, no
+external service. The file is `data/rsvp.sqlite` (WAL mode, `synchronous=FULL`) and
+is git-ignored. Survives refreshes, restarts and redeploys.
+
+> **Backup:** copy `data/rsvp.sqlite` (and `rsvp.sqlite-wal` if present). That one
+> file is the entire register.
+
+Columns: `id, guest_name, phone_number, phone_e164, email, attendance_status,
+guest_count, event_selection, event_keys, event_labels, meal_preference,
+special_requests, submitted_at, submitted_at_ist, submitted_utc, submitted_day,
+notification_status, notification_attempts, notification_error, notified_at,
+next_attempt_at, client_token, dedupe_key, ip_hash, user_agent`. A second table,
+`notification_log`, records every send attempt.
+
+### Where to put the WhatsApp number
+
+`.env` in the project root (never committed):
+
+```ini
+WHATSAPP_RECIPIENT_NUMBER=919810833429   # already set: +91 98108 33429
+```
+
+The backend normalises it and **only ever sends to this number** — never to the
+guest. It is a server-side variable and never reaches the browser bundle (asserted
+by the test suite).
+
+### Credentials required
+
+```ini
+WHATSAPP_ACCESS_TOKEN=        # Meta system-user / permanent token
+WHATSAPP_PHONE_NUMBER_ID=     # the SENDING number's ID (not the recipient's)
+WHATSAPP_BUSINESS_ACCOUNT_ID= # optional, informational
+ADMIN_PASSWORD=               # gates /admin  (already set for this preview)
+SESSION_SECRET=               # optional; auto-generated if absent
+```
+
+See `.env.example` for the annotated template. Add the same keys as environment
+variables in your host's dashboard for production.
+
+### Meta setup and template approval
+
+1. Create a **Meta Business** account and a **WhatsApp Business Account (WABA)**.
+2. Add a phone number → note its **Phone number ID** → use it as
+   `WHATSAPP_PHONE_NUMBER_ID`.
+3. Create a **permanent** system-user token with `whatsapp_business_messaging`.
+4. Business verification is **not** required to message your own test numbers, but
+   is required to raise limits and message arbitrary numbers in production.
+5. Free-form text only works inside the **24-hour customer service window**. Outside
+   it, Meta rejects with error `131047` and an **approved template** is mandatory.
+   Create a **UTILITY** template whose body is `💌 NEW WEDDING RSVP RECEIVED`
+   followed by `{{1}}`; set `WHATSAPP_TEMPLATE_NAME` and the backend switches to
+   template mode automatically (the whole formatted message becomes `{{1}}`).
+
+### Notification format
+
+Exactly the specified layout: heading, guest name, mobile, email, attendance,
+total guests, events, meal, special requests, RSVP ID, IST timestamp, the
+`-------------------------` rule and the closing line. Both **Accepts** and
+**Declines** are sent.
+
+### Reliability contract
+
+Save first, notify second. The RSVP is committed with
+`notification_status='pending'` **before** the guest sees success, so a Meta
+outage can never lose a response. Statuses move `pending → sent` or
+`pending → failed` (permanent: auth, bad request, window closed) and transient
+failures retry on a backoff of 30s → 1m → 2m → 5m → 10m → 30m → 1h → 2h.
+An atomic conditional `UPDATE` claims each row, so retries and concurrent
+workers can never double-send. Safer to under-send than to lie: the site never
+claims a WhatsApp message was delivered.
+
+### Admin view
+
+`http://localhost:3000/admin` — password-gated (signed HttpOnly session cookie).
+Shows totals, confirmed attendees, accompanying guests, accepts/declines split,
+search by name or mobile, per-response detail, notification status with manual
+retry, and a CSV export. Not publicly accessible; no guest data is exposed on the
+public site.
+
+### Tests
+
+```bash
+npm run test:rsvp      # 112 assertions, all seven mandatory scenarios
+```
+
+Covers accept, decline, multiple guests, special requests, invalid input, a
+WhatsApp outage followed by recovery (no duplicate send), and duplicate-submission
+prevention — plus honeypot/bot filtering, CSV BOM, path traversal, Range serving
+for iOS video and restart persistence. WhatsApp is exercised end-to-end against a
+mock Graph endpoint: the real code path runs, but the mock cannot prove Meta will
+accept a token.
