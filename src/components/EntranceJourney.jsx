@@ -408,7 +408,7 @@ export default function EntranceJourney({ isNight, onComplete }) {
         <Monogram className="w-[20px] sm:w-6 h-auto shrink-0 drop-shadow-[0_2px_10px_rgba(212,175,55,0.5)]" />
         <div>
           <p className="font-cinzel text-[8px] sm:text-[9px] tracking-[0.3em] uppercase text-[#dfba5c] leading-tight">
-            Royal Wedding Celebration
+            Wedding Celebration
           </p>
           <h2 className="font-royal text-[11px] sm:text-sm tracking-[0.14em] uppercase text-[#fbf7ee] font-normal drop-shadow leading-tight">
             Simran <span className="text-[#dfba5c]">&amp;</span> Sachit
@@ -436,20 +436,20 @@ export default function EntranceJourney({ isNight, onComplete }) {
             <Monogram className="w-full h-full drop-shadow-[0_0_18px_rgba(212,175,55,0.45)]" />
           </div>
 
-          <span className="font-sans-clean text-[9px] sm:text-[11px] tracking-[0.34em] uppercase text-[#dfba5c] mb-2 font-medium">
-            Together With Their Families
-          </span>
+          <p className="font-cinzel text-[10px] sm:text-[12px] tracking-[0.26em] uppercase text-[#dfba5c] mb-3 font-medium leading-relaxed">
+            Together We As A Family Invite You To
+          </p>
 
-          <h1 className="font-cinzel text-xl sm:text-4xl text-[#fdfaf2] font-semibold tracking-[0.14em] mb-1">
+          <h1 className="font-cinzel text-lg sm:text-3xl text-[#fdfaf2] font-semibold tracking-[0.12em] mb-2 leading-tight">
             SIMRAN SAXENA
           </h1>
 
-          <div className="font-script text-xl sm:text-3xl text-[#dfba5c] my-0.5 sm:my-1">
+          <div className="font-script text-lg sm:text-2xl text-[#dfba5c] my-0.5">
             and
           </div>
 
-          <h1 className="font-cinzel text-xl sm:text-4xl text-[#fdfaf2] font-semibold tracking-[0.14em] mb-2 sm:mb-3">
-            SACHIT SRIVASTAVA
+          <h1 className="font-cinzel text-lg sm:text-3xl text-[#fdfaf2] font-semibold tracking-[0.12em] mb-2 leading-tight">
+            SACHIT SRIVASTAVA&rsquo;S
           </h1>
 
           <div className="flex items-center gap-3 w-full max-w-xs my-2">
@@ -459,7 +459,7 @@ export default function EntranceJourney({ isNight, onComplete }) {
           </div>
 
           <p className="font-serif-body text-sm sm:text-lg text-[#ece5d8] italic max-w-md leading-relaxed my-2 mb-6">
-            Cordially invite you to celebrate their auspicious union amidst royal splendour.
+            Auspicious Union
           </p>
 
           <button

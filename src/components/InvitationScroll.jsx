@@ -319,7 +319,7 @@ function WelcomeSection({ isNight, settled }) {
           You Are Cordially Invited To
         </p>
         <p className="reveal font-cinzel mt-1 text-[clamp(0.55rem,1.5dvh,0.875rem)] font-medium tracking-[0.2em] uppercase text-[#fdfaf3] drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)] sm:tracking-[0.24em]">
-          Celebrate Our Wedding
+          Celebrate Their Union
         </p>
 
         <div className="mt-[clamp(1rem,4dvh,2.5rem)] flex animate-bounce items-center gap-1.5 font-sans-clean text-[10px] tracking-[0.25em] uppercase text-[#dfba5c] drop-shadow-[0_2px_6px_rgba(0,0,0,0.8)]">
@@ -1329,9 +1329,22 @@ function ClosingSection() {
         <p className="reveal font-script mt-4 text-[clamp(1.5rem,5dvh,2.75rem)] leading-tight text-[#f7d58a] drop-shadow-[0_4px_20px_rgba(0,0,0,0.9)]">
           With love, we await you
         </p>
-        <p className="reveal font-cinzel mt-3 text-[clamp(0.5rem,1.4vmin,0.7rem)] uppercase tracking-[0.32em] text-[#dfba5c]">
-          Simran &amp; Sachit
-        </p>
+        <div className="reveal mt-3 flex flex-col items-center gap-1">
+          {[
+            'RACHIT SRIVASTAVA',
+            'MILKY SRIVASTAVA',
+            'LAVANYA SAXENA',
+            'ARYAN SAXENA',
+            'RAMIT SRIVASTAVA',
+          ].map((name) => (
+            <p
+              key={name}
+              className="font-cinzel text-[clamp(0.5rem,1.4vmin,0.7rem)] uppercase tracking-[0.32em] text-[#dfba5c] whitespace-nowrap"
+            >
+              {name}
+            </p>
+          ))}
+        </div>
         <p className="reveal font-sans-clean mt-6 text-[clamp(0.44rem,1.1vmin,0.58rem)] uppercase tracking-[0.24em] text-[#8b8377]">
           10 &amp; 12 December 2026 · Ghaziabad
         </p>

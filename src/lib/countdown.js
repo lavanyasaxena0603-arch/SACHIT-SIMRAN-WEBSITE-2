@@ -1,15 +1,20 @@
 import { useEffect, useState } from 'react';
 
 /**
- * The celebration happens in India, so both deadlines are pinned to IST
- * (+05:30) rather than the viewer's own clock zone. A guest opening the invite
- * from London and one sitting in Ghaziabad must read the same numbers.
+ * The celebration happens in India, so the deadline is pinned to IST (+05:30)
+ * rather than the viewer's own clock zone. A guest opening the invite from
+ * London and one sitting in Ghaziabad must read the same numbers.
  *
- *   Engagement — Thursday, 10 December 2026, 6:00 pm
- *   Wedding    — Saturday, 12 December 2026, 8:00 pm
+ *   Wedding — 12 December 2026, 00:00 IST  (the dial's final target)
+ *
+ * The engagement date (Thursday, 10 December 2026) is still shown, but as the
+ * static line in `EngagementSection` rather than as a countdown stage, because
+ * the dial is now captioned "Counting Down To The Wedding".
  */
+export const WEDDING_AT = new Date('2026-12-12T00:00:00+05:30');
+
+/** Kept for the engagement section's own display of the date. */
 export const ENGAGEMENT_AT = new Date('2026-12-10T18:00:00+05:30');
-export const WEDDING_AT = new Date('2026-12-12T20:00:00+05:30');
 
 function split(ms) {
   const t = Math.max(0, ms);
@@ -24,9 +29,15 @@ function split(ms) {
 }
 
 /**
- * Two-phase countdown: it counts to the engagement first, then rolls itself
- * over to the wedding, then settles on a "the celebration" state. Nothing is
- * hard-coded into the markup — the scenes read `phase`/`label` from here.
+ * Two stages, as before: count, then settle.
+ *
+ *   before 12 Dec 2026 00:00 IST -> "Counting Down To The Wedding"
+ *   after                        -> "The Celebration Has Begun"
+ *
+ * The engagement no longer drives the dial. The couple asked for the timer to
+ * read "Counting Down To The Wedding" and target 12 December, and the engagement
+ * date (Thursday, 10 December 2026) is already displayed separately as a static
+ * line in `EngagementSection`, so nothing is lost from the page.
  */
 export function useCountdown() {
   const [now, setNow] = useState(() => Date.now());
@@ -36,17 +47,8 @@ export function useCountdown() {
     return () => clearInterval(id);
   }, []);
 
-  const toEngagement = ENGAGEMENT_AT.getTime() - now;
   const toWedding = WEDDING_AT.getTime() - now;
 
-  if (toEngagement > 0) {
-    return {
-      phase: 'engagement',
-      label: 'Counting Down To The Engagement',
-      target: '10 December 2026',
-      ...split(toEngagement),
-    };
-  }
   if (toWedding > 0) {
     return {
       phase: 'wedding',

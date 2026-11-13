@@ -33,7 +33,7 @@ export default function SectionHeader() {
       <Monogram className="h-auto w-[20px] shrink-0 drop-shadow-[0_2px_10px_rgba(212,175,55,0.5)] sm:w-6" />
       <div className="text-left">
         <p className="font-cinzel text-[8px] leading-tight tracking-[0.3em] uppercase text-[#dfba5c] sm:text-[9px]">
-          Royal Wedding Celebration
+          Wedding Celebration
         </p>
         <h2 className="font-royal text-[11px] leading-tight font-normal tracking-[0.14em] uppercase text-[#fbf7ee] drop-shadow sm:text-sm">
           Simran <span className="text-[#dfba5c]">&amp;</span> Sachit
