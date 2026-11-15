@@ -8,26 +8,23 @@ dist/
 dist-ssr/
 *.local
 
-# ---- RSVP backend: the guest register ----
-# `data/` holds the live SQLite database and its WAL sidecars. It contains real
-# personal data (names, phone numbers, emails) and must NEVER be committed.
-# Back it up with `npm run db:backup` instead.
-data/
-*.sqlite
-*.sqlite3
-*.sqlite-wal
-*.sqlite-shm
-*.db
-*.db-wal
-*.db-shm
+# ---- node / tooling ----
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.lerna-debug.log*
 
-# ---- secrets ----
+# ---- env ----
 # `.env.example` IS committed (placeholders only). Everything else is not.
 .env
 .env.local
 .env.*.local
 .dev.vars
 .dev.vars.*
+
+# ---- secrets / keys ----
 *.pem
 *.key
 *.p12
@@ -35,18 +32,6 @@ data/
 id_rsa*
 id_ed25519*
 secrets.json
-
-# ---- logs ----
-logs/
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
-server-boot.log
-pm2-boot.log
-.pm2/
 
 # ---- OS / editor ----
 .vscode/*

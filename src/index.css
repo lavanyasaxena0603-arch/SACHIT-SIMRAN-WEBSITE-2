@@ -255,7 +255,7 @@
   }
 }
 
-/* Horizontal breathing space for full-bleed overlays and the RSVP sheet.
+/* Horizontal breathing space for full-bleed overlays.
    calc(base + inset) rather than max(), so the approved padding is preserved
    exactly (inset is 0px on every device without a cutout) and only ever grows
    where the hardware actually intrudes. */

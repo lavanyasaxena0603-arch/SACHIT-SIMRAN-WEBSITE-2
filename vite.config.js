@@ -3,6 +3,14 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
 // https://vite.dev/config/
+//
+// STATIC FRONTEND ONLY.
+//
+// This config used to proxy `/api` and `/admin` to a Node backend that served
+// the RSVP guest register. That backend, its SQLite file and its WhatsApp
+// notifier have been removed, so there is nothing to proxy to: the invitation
+// is a pure static build and `vite build` output is deployable to any static
+// host as-is. The ports below are purely for local development previews.
 export default defineConfig({
   plugins: [
     react(),
@@ -14,21 +22,6 @@ export default defineConfig({
     // Dev previews on a laptop may be reached through a generated hostname, which
     // Vite's host check rejects by default (403 "Blocked request").
     allowedHosts: true,
-    // The frontend always calls same-origin `/api/...`. In dev, Vite serves the
-    // page and forwards `/api` to the Node backend, so there is no base URL to
-    // configure and no CORS to negotiate. In production the Node server serves
-    // both, so the exact same relative paths keep working.
-    proxy: {
-      '/api': {
-        target: `http://127.0.0.1:${process.env.PORT || 3000}`,
-        changeOrigin: true,
-      },
-      // The admin view is server-rendered HTML + its own JSON calls.
-      '/admin': {
-        target: `http://127.0.0.1:${process.env.PORT || 3000}`,
-        changeOrigin: true,
-      },
-    },
   },
   preview: {
     host: '0.0.0.0',

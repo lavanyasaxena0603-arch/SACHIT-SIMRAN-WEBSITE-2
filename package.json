@@ -4,18 +4,10 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "setup": "node scripts/setup.mjs",
-    "dev": "node scripts/dev.mjs",
-    "dev:client": "vite",
-    "dev:server": "node server/server.mjs",
+    "dev": "vite",
     "build": "vite build",
-    "start": "node server/server.mjs",
-    "serve": "npm run build && node server/server.mjs",
     "lint": "oxlint",
-    "preview": "vite preview",
-    "test:rsvp": "node test/rsvp-suite.mjs",
-    "db:backup": "node scripts/db-backup.mjs",
-    "db:seed-demo": "node scripts/seed-demo.mjs"
+    "preview": "vite preview"
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",

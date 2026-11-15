@@ -1,0 +1,178 @@
+/* ============================================================================
+   AAA CINEMATIC ENHANCEMENT LAYER  —  ADDITIVE ONLY
+   ----------------------------------------------------------------------------
+   Every rule in this file is namespaced under `.cine-`. Nothing here overrides,
+   replaces or redefines: no existing class, keyframe, transition or component
+   style is touched. Deleting this file together with <CinematicLayer /> returns
+   the site to its exact previous state.
+
+   Rules of the house, carried over from the approved code:
+     - animate `transform` and `opacity` only, so nothing triggers layout
+     - no layout-affecting properties (no width/height/top/left animation)
+     - everything decorative is `pointer-events: none` + `aria-hidden`
+     - under `prefers-reduced-motion: reduce` the layer is not merely slowed
+       down, it is removed from the flow of time entirely
+   ========================================================================== */
+
+/* ------------------------------------------------------------------ DUST ---- */
+/* Gold dust drifting up through the whole invitation. Fourteen specks, one
+   composited layer, no canvas and no rAF loop.
+
+   `translate3d` (not `translate`) is deliberate: it forces each mote onto its
+   own compositor layer at MOUNT rather than at the first animated frame, which
+   is the same stall the Bride & Groom plates hit — the first frame of an
+   animated transform otherwise has to repaint before anything can move. */
+@keyframes cineDustRise {
+  0% {
+    transform: translate3d(0, 0, 0) scale(0.85);
+    opacity: 0;
+  }
+  10% {
+    opacity: var(--cine-dust-peak, 0.5);
+  }
+  72% {
+    opacity: calc(var(--cine-dust-peak, 0.5) * 0.55);
+  }
+  100% {
+    transform: translate3d(var(--cine-dust-sway, 10px), -108dvh, 0) scale(1.06);
+    opacity: 0;
+  }
+}
+
+.cine-dust {
+  position: absolute;
+  border-radius: 9999px;
+  background: radial-gradient(
+    circle at 50% 50%,
+    rgba(255, 245, 214, 0.95) 0%,
+    rgba(223, 186, 92, 0.75) 42%,
+    rgba(212, 175, 55, 0) 72%
+  );
+  will-change: transform, opacity;
+  animation-name: cineDustRise;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+/* A warm moonlit version for the night theme: cooler highlight, lower peak, so
+   the specks read as dust in lamplight rather than sparks. */
+.cine-night .cine-dust {
+  background: radial-gradient(
+    circle at 50% 50%,
+    rgba(240, 236, 214, 0.9) 0%,
+    rgba(196, 176, 122, 0.6) 44%,
+    rgba(160, 140, 90, 0) 74%
+  );
+}
+
+/* ------------------------------------------------------- ENVIRONMENTAL ---- */
+/* One very soft, very slow radial light that breathes near the TOP of the frame
+   — a warm daylight wash in Day, a cool moonlight wash in Night.
+
+   This layer paints ABOVE the content, so the alpha is the readability budget.
+   Peak is capped at 0.09 (Day) / 0.07 (Night) and the gradient is confined to
+   the upper third, away from body copy. Slow enough (22-26s) to read as light
+   shifting in a room rather than as an animation. */
+@keyframes cineGlowBreathe {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: var(--cine-glow-peak, 0.09);
+  }
+  50% {
+    transform: translate3d(0, -1.4%, 0) scale(1.05);
+    opacity: calc(var(--cine-glow-peak, 0.09) * 0.6);
+  }
+}
+
+.cine-glow {
+  position: absolute;
+  inset: -12% -10% 42%;
+  will-change: transform, opacity;
+  animation: cineGlowBreathe var(--cine-glow-dur, 22s) ease-in-out infinite;
+}
+
+/* ------------------------------------------------------------- VIGNETTE ---- */
+/* Static edge darkening. Deliberately part of this layer because it IMPROVES
+   legibility: the centre — where every headline and paragraph sits — is left
+   entirely untouched, and only the corners deepen. Animates nothing, so it
+   costs one gradient and zero frames. */
+.cine-vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* ---------------------------------------------------------- PRESS GLOW ----- */
+/* Screen-space touch/click feedback. This is NOT inserted into the button — it
+   is drawn on a fixed overlay at the pointer's coordinates, so it cannot alter
+   any existing element's layout, stacking or handlers. */
+@keyframes cineRippleOut {
+  0% {
+    transform: translate(-50%, -50%) scale(0.28);
+    opacity: 0.5;
+  }
+  60% {
+    opacity: 0.22;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0;
+  }
+}
+
+.cine-ripple {
+  position: absolute;
+  width: 132px;
+  height: 132px;
+  margin: 0;
+  border-radius: 9999px;
+  pointer-events: none;
+  background: radial-gradient(
+    circle at 50% 50%,
+    rgba(255, 232, 168, 0.55) 0%,
+    rgba(212, 175, 55, 0.32) 38%,
+    rgba(212, 175, 55, 0) 70%
+  );
+  animation: cineRippleOut 620ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  will-change: transform, opacity;
+}
+
+/* ------------------------------------------------------------- PAUSING ----- */
+/* A backgrounded tab must not keep fourteen infinite animations running. The
+   layer is paused rather than unmounted so no animation position is lost when
+   the guest returns. */
+.cine-paused .cine-dust,
+.cine-paused .cine-glow {
+  animation-play-state: paused;
+}
+
+/* --------------------------------------------------- REDUCED MOTION -------- */
+/* Not slowed down — removed. The decorative layer contributes nothing the
+   invitation depends on, so suppressing it entirely loses no information.
+   The vignette stays: it is static and helps legibility. */
+@media (prefers-reduced-motion: reduce) {
+  .cine-dust,
+  .cine-glow {
+    animation: none;
+    opacity: 0;
+  }
+  .cine-ripple {
+    display: none;
+  }
+}
+
+/* ------------------------------------------------------------ DENSITY ------ */
+/* Phones get fewer specks: battery and GPU headroom, not aesthetics.
+   `nth-of-type` (not `nth-child`) because the light <div> precedes the dust —
+   counting by child index would hide one speck too many. `nth-of-type` counts
+   only the dust <span>s, which is what the number is meant to mean. */
+@media (max-width: 640px) {
+  .cine-dust:nth-of-type(n + 7) {
+    display: none;
+  }
+  .cine-ripple {
+    width: 104px;
+    height: 104px;
+  }
+}

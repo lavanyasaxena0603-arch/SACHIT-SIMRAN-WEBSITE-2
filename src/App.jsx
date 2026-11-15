@@ -6,7 +6,7 @@ import GoldenThread from './components/GoldenThread';
 import SectionHeader from './components/SectionHeader';
 import GlobalControls from './components/GlobalControls';
 import AmbientMusic from './components/AmbientMusic';
-import RsvpSection from './components/RsvpSection';
+import CinematicLayer from './components/CinematicLayer';
 import FinaleSection from './components/FinaleSection';
 import useOrientation from './lib/useOrientation';
 
@@ -129,6 +129,14 @@ export default function App() {
           time a scene mounts. Every <video> below it is muted. */}
       <AmbientMusic isMuted={isMuted} />
 
+      {/* THE AAA CINEMATIC ENHANCEMENT LAYER — additive only.
+          Sits above the content as a decorative overlay: gold dust, a slow
+          environmental light and a corner vignette, plus a screen-space press
+          glow. It renders no text and owns no layout, so it cannot shift,
+          restyle or re-animate anything that was already approved. Delete this
+          one line (and the component + css) to return to the previous state. */}
+      <CinematicLayer isNight={isNight} />
+
       <GlobalControls
         isNight={isNight}
         onToggleNight={toggleNight}
@@ -167,24 +175,22 @@ export default function App() {
             <SectionHeader />
             <InvitationScroll isNight={isNight} />
 
-            {/* THE RSVP sits AFTER the seven invitation sections, in the same
-                normal document flow — not inside InvitationScroll, which is
-                left completely untouched. It is a sibling, so it scrolls in
-                from below like every other chapter and the document stays one
-                continuous sheet. */}
-            <RsvpSection isNight={isNight} />
-
             {/* THE FINALE — the last chapter, in the same normal document flow.
                 It is deliberately NOT inside InvitationScroll, which is left
-                exactly as approved. Because it is a flush sibling of the RSVP,
-                it scrolls up from below with no gap and no black frame, and the
-                palace background it opens on never unmounts.
+                exactly as approved. It is a flush sibling of <InvitationScroll />,
+                so it scrolls up from below with no gap and no black frame, and
+                the palace background it opens on never unmounts.
+
+                The RSVP letter that used to sit between these two is gone: the
+                guest register needed a Node server, a SQLite file and its own
+                hosting, so the invitation is now a static frontend and the last
+                section hands straight to the finale.
 
                 ALWAYS MOUNTED. This used to be `{isNight && <FinaleSection />}`,
                 which meant the finale only existed for a visitor who happened to
                 toggle Night — anyone who left the site on Day (the default)
-                reached the end of the RSVP and found nothing there. That is the
-                bug behind "the final celebration video is not playing".
+                reached the end of the document and found nothing there. That is
+                the bug behind "the final celebration video is not playing".
 
                 "Night only" is a statement about the ARTWORK, not about a
                 condition: the finale is painted as a night palace with the

@@ -7,12 +7,12 @@ import { watchFilm } from '../lib/film';
 /**
  * THE GRAND ROYAL WEDDING FINALE — night only.
  *
- * WHY THIS IS A COMPONENT OF ITS OWN, SITTING AFTER THE RSVP
- * ---------------------------------------------------------
+ * WHY THIS IS A COMPONENT OF ITS OWN, SITTING AFTER THE SEVEN SECTIONS
+ * -------------------------------------------------------------------
  * It is a chapter like every other: a real <section> in normal document flow,
  * so the browser scrolls it in from below and no gap or black frame can open
- * against the RSVP above it. It is mounted by <App /> as a sibling of
- * <InvitationScroll /> and <RsvpSection />, so none of those files are touched.
+ * against the closing section above it. It is mounted by <App /> as a flush
+ * sibling of <InvitationScroll />, so that file is left completely untouched.
  *
  * THE TWO ACTS, SEQUENCED BY SCROLL
  * ---------------------------------
@@ -113,7 +113,7 @@ const STAGES = [
   { k: 'groom-family', en: 'Son of Smt. Roli Srivastava & Sh. Satyendra Srivastava' },
   { k: 'procession', en: 'The baraat procession — the palki, the elephant and the dhol arrive with the groom' },
   { k: 'bigday', en: 'The Big Day' },
-  { k: 'rsvp', en: 'R.S.V.P. — Pradeep Saxena · Mudit Saxena · Manoj Saxena · Anupam Saxena · Praveen Saxena · Vinod Saxena · Ashish Saxena' },
+  { k: 'invitation', en: 'R.S.V.P. — Pradeep Saxena · Mudit Saxena · Manoj Saxena · Anupam Saxena · Praveen Saxena · Vinod Saxena · Ashish Saxena' },
 ];
 
 function GoldMotes() {
