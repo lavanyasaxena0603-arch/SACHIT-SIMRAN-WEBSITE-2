@@ -143,6 +143,8 @@ const COUPLE = [
     label: 'THE BRIDE',
     name: 'Simran',
     parents: '(Daughter of Smt. Savita Saxena & Sh. Naveen Saxena)',
+    grandparents:
+      '(Grand D/o Late Smt. Urmila Devi & Late Sh. Rajendra Swarup Saxena)',
     bio: '“A vision of unconditional love, and timeless grace, and impossibly open charm — with a heart that fills every room she walks into.”',
     day: '/assets/couple/bride-day.png',
     night: '/assets/couple/bride-night.png',
@@ -426,9 +428,21 @@ function CoupleSection({ isNight }) {
                 <h3 className="font-royal my-1 text-[clamp(1.15rem,3.5dvh,1.875rem)] leading-tight font-normal tracking-wide text-[#fdfaf3]">
                   {person.name}
                 </h3>
-                <p className="font-serif-body mb-[clamp(0.5rem,1.75dvh,0.75rem)] text-[clamp(0.65rem,1.85dvh,1rem)] font-medium leading-snug tracking-wide text-[#dfba5c] italic">
-                  {person.parents}
-                </p>
+                {/* Parents and grandparents sit together as one block, so the
+                    bride's card reads as a single lineage statement. The margin
+                    lives on the wrapper, not on the parents line, so a card
+                    WITHOUT a grandparents line (the groom) keeps exactly the
+                    spacing it had before. */}
+                <div className="mb-[clamp(0.5rem,1.75dvh,0.75rem)]">
+                  <p className="font-serif-body text-[clamp(0.65rem,1.85dvh,1rem)] font-medium leading-snug tracking-wide text-[#dfba5c] italic">
+                    {person.parents}
+                  </p>
+                  {person.grandparents && (
+                    <p className="font-serif-body mt-[clamp(0.2rem,0.7dvh,0.4rem)] text-[clamp(0.6rem,1.7dvh,0.9375rem)] font-medium leading-snug tracking-wide text-[#dfba5c]/85 italic">
+                      {person.grandparents}
+                    </p>
+                  )}
+                </div>
                 <div className="my-[clamp(0.35rem,1.15dvh,0.5rem)] h-px w-16 bg-gradient-to-r from-transparent via-[#d4af37]/80 to-transparent sm:w-20" />
                 <p className="font-serif-body max-w-sm text-[clamp(0.65rem,1.6dvh,0.875rem)] leading-relaxed text-[#dad2c3] italic">
                   {person.bio}
