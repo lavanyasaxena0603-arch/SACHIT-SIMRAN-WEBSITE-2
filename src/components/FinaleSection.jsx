@@ -106,11 +106,11 @@ const STAGES = [
   { k: 'ganesh', sa: '॥ शुभ लाभ ॥', en: 'With the blessings of God, we cordially invite you and your family to the' },
   { k: 'heading', en: 'Wedding Ceremony' },
   { k: 'of', en: 'of our beloved' },
-  { k: 'bride', name: 'Simran' },
-  { k: 'bride-family', en: 'Daughter of Smt. Savita Saxena & Sh. Naveen Saxena' },
-  { k: 'and', en: 'and' },
   { k: 'groom', name: 'Sachit' },
   { k: 'groom-family', en: 'Son of Smt. Roli Srivastava & Sh. Satyendra Srivastava' },
+  { k: 'and', en: 'and' },
+  { k: 'bride', name: 'Simran' },
+  { k: 'bride-family', en: 'Daughter of Smt. Savita Saxena & Sh. Naveen Saxena' },
   { k: 'procession', en: 'The baraat procession — the palki, the elephant and the dhol arrive with the groom' },
   { k: 'bigday', en: 'The Big Day' },
   { k: 'invitation', en: 'R.S.V.P. — Pradeep Saxena · Mudit Saxena · Manoj Saxena · Anupam Saxena · Praveen Saxena · Vinod Saxena · Ashish Saxena' },
@@ -742,7 +742,7 @@ export default function FinaleSection() {
 
             No venue is named here: the invitation deliberately excludes it. */}
         <div className="sr-only">
-          <h2>The Wedding Ceremony of Simran and Sachit</h2>
+          <h2>The Wedding Ceremony of Sachit and Simran</h2>
           {STAGES.map((s) => (
             <p key={s.k}>
               {s.sa ? `${s.sa} — ` : ''}

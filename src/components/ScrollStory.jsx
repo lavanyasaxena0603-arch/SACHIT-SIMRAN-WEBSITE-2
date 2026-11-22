@@ -70,16 +70,6 @@ function Backdrop({ daySrc, nightSrc, isNight, className = '' }) {
 // washed-out or see-through over a bright courtyard.
 const COUPLE = [
   {
-    key: 'bride',
-    label: 'THE BRIDE',
-    name: 'Simran',
-    parents: '(Daughter of Smt. Savita Saxena & Sh. Naveen Saxena)',
-    bio: '“A vision of unconditional love, and timeless grace, and impossibly open charm — with a heart that fills every room she walks into.”',
-    day: '/assets/couple/bride-day.png',
-    night: '/assets/couple/bride-night.png',
-    alt: 'Simran — The Bride',
-  },
-  {
     key: 'groom',
     label: 'THE GROOM',
     name: 'Sachit',
@@ -88,6 +78,16 @@ const COUPLE = [
     day: '/assets/couple/groom-day.png',
     night: '/assets/couple/groom-night.png',
     alt: 'Sachit — The Groom',
+  },
+  {
+    key: 'bride',
+    label: 'THE BRIDE',
+    name: 'Simran',
+    parents: '(Daughter of Smt. Savita Saxena & Sh. Naveen Saxena)',
+    bio: '“A vision of unconditional love, and timeless grace, and impossibly open charm — with a heart that fills every room she walks into.”',
+    day: '/assets/couple/bride-day.png',
+    night: '/assets/couple/bride-night.png',
+    alt: 'Simran — The Bride',
   },
 ];
 
@@ -115,7 +115,7 @@ function WelcomeAct() {
         className="text-[clamp(1.85rem,8.4dvh,5.5rem)] leading-[1.12] font-normal text-transparent bg-clip-text bg-gradient-to-r from-[#ebd6a7] via-[#fff5df] to-[#ebd6a7] drop-shadow-[0_4px_24px_rgba(0,0,0,0.95)]"
         style={{ fontFamily: "'Great Vibes', cursive" }}
       >
-        Simran Saxena &amp;<br />Sachit Srivastava
+        Sachit Srivastava &amp;<br />Simran Saxena
       </h1>
 
       <div className="w-full max-w-sm sm:max-w-md my-[clamp(0.4rem,1.6dvh,1rem)]">
@@ -428,7 +428,7 @@ export default function ScrollStory({ isNight }) {
               Royal Wedding
             </p>
             <h2 className="font-royal text-[11px] sm:text-xs tracking-[0.16em] uppercase text-[#fdfaf3] font-medium leading-none">
-              Simran &amp; Sachit
+              Sachit &amp; Simran
             </h2>
           </div>
         </header>

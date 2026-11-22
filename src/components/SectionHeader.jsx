@@ -36,7 +36,7 @@ export default function SectionHeader() {
           Wedding Celebration
         </p>
         <h2 className="font-royal text-[11px] leading-tight font-normal tracking-[0.14em] uppercase text-[#fbf7ee] drop-shadow sm:text-sm">
-          Simran <span className="text-[#dfba5c]">&amp;</span> Sachit
+          Sachit <span className="text-[#dfba5c]">&amp;</span> Simran
         </h2>
       </div>
     </header>

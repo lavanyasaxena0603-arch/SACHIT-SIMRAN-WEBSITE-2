@@ -1,4 +1,4 @@
-# Simran & Sachit — Royal Wedding Invitation
+# Sachit & Simran — Royal Wedding Invitation
 
 An animated, scroll-driven wedding invitation built as a **static single-page React app**.
 

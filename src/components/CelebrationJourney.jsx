@@ -621,7 +621,7 @@ export default function CelebrationJourney({ isNight }) {
               Royal Wedding
             </p>
             <h2 className="font-royal text-[11px] leading-none font-medium tracking-[0.16em] uppercase text-[#fdfaf3] sm:text-xs">
-              Simran &amp; Sachit
+              Sachit &amp; Simran
             </h2>
           </div>
         </header>

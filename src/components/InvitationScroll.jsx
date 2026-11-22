@@ -139,6 +139,16 @@ const WEDDING_MAP = 'https://maps.app.goo.gl/6gzA6t5nxyrjVTcp9';
 
 const COUPLE = [
   {
+    key: 'groom',
+    label: 'THE GROOM',
+    name: 'Sachit',
+    parents: '(Son of Smt. Roli Srivastava & Sh. Satyendra Srivastava)',
+    bio: '“Epitome of kindness, quiet strength, and a boundless heart — someone who makes life feel like home.”',
+    day: '/assets/couple/groom-day.png',
+    night: '/assets/couple/groom-night.png',
+    alt: 'Sachit — The Groom',
+  },
+  {
     key: 'bride',
     label: 'THE BRIDE',
     name: 'Simran',
@@ -149,16 +159,6 @@ const COUPLE = [
     day: '/assets/couple/bride-day.png',
     night: '/assets/couple/bride-night.png',
     alt: 'Simran — The Bride',
-  },
-  {
-    key: 'groom',
-    label: 'THE GROOM',
-    name: 'Sachit',
-    parents: '(Son of Smt. Roli Srivastava & Sh. Satyendra Srivastava)',
-    bio: '“Epitome of kindness, quiet strength, and a boundless heart — someone who makes life feel like home.”',
-    day: '/assets/couple/groom-day.png',
-    night: '/assets/couple/groom-night.png',
-    alt: 'Sachit — The Groom',
   },
 ];
 
@@ -299,9 +299,9 @@ function WelcomeSection({ isNight, settled }) {
             thread rail. A slightly smaller elegant name beats a cramped maximum
             one, and the two-line lockup can never break. */}
         <h1 className="reveal font-script bg-gradient-to-r from-[#ebd6a7] via-[#fff5df] to-[#ebd6a7] bg-clip-text text-[clamp(1.65rem,min(8.4dvh,13vw),5.5rem)] leading-[1.12] font-normal text-transparent drop-shadow-[0_4px_24px_rgba(0,0,0,0.95)]">
-          Simran Saxena &amp;
+          Sachit Srivastava &amp;
           <br />
-          Sachit Srivastava
+          Simran Saxena
         </h1>
 
         <div className="reveal my-[clamp(0.4rem,1.6dvh,1rem)] w-full max-w-sm sm:max-w-md">
@@ -383,10 +383,10 @@ function CoupleSection({ isNight }) {
                would do nothing at all — the exact "cards stopped responding"
                failure. So the reveal owns this wrapper and the card is free to
                own its own transform. */
-            <div key={person.key} className="reveal">
+            <div key={person.key} className="reveal flex flex-col h-full">
               <article
                 tabIndex={0}
-                className="couple-card group flex flex-col items-center rounded-2xl border border-[#d4af37]/60 bg-gradient-to-b from-[#101830] via-[#0b1022] to-[#050814] p-[clamp(1rem,3dvh,1.75rem)] text-center shadow-[0_24px_60px_rgba(0,0,0,0.85),inset_0_0_30px_rgba(212,175,55,0.08)]"
+                className="couple-card group flex h-full flex-col items-center rounded-2xl border border-[#d4af37]/60 bg-gradient-to-b from-[#101830] via-[#0b1022] to-[#050814] p-[clamp(1rem,3dvh,1.75rem)] text-center shadow-[0_24px_60px_rgba(0,0,0,0.85),inset_0_0_30px_rgba(212,175,55,0.08)]"
               >
                 <div className="couple-frame relative mb-[clamp(0.75rem,2.9dvh,1.25rem)] aspect-[7/9] w-full max-w-[16rem] overflow-hidden rounded-t-full border-2 border-[#d4af37]/80 shadow-[0_15px_35px_rgba(0,0,0,0.7),0_0_20px_rgba(212,175,55,0.25)] sm:border-4">
                   {/* BOTH plates are mounted, always, and the Day/Night switch is
@@ -433,7 +433,7 @@ function CoupleSection({ isNight }) {
                     lives on the wrapper, not on the parents line, so a card
                     WITHOUT a grandparents line (the groom) keeps exactly the
                     spacing it had before. */}
-                <div className="mb-[clamp(0.5rem,1.75dvh,0.75rem)]">
+                <div className="my-auto flex flex-col items-center justify-center py-1">
                   <p className="font-serif-body text-[clamp(0.65rem,1.85dvh,1rem)] font-medium leading-snug tracking-wide text-[#dfba5c] italic">
                     {person.parents}
                   </p>
@@ -443,10 +443,12 @@ function CoupleSection({ isNight }) {
                     </p>
                   )}
                 </div>
-                <div className="my-[clamp(0.35rem,1.15dvh,0.5rem)] h-px w-16 bg-gradient-to-r from-transparent via-[#d4af37]/80 to-transparent sm:w-20" />
-                <p className="font-serif-body max-w-sm text-[clamp(0.65rem,1.6dvh,0.875rem)] leading-relaxed text-[#dad2c3] italic">
-                  {person.bio}
-                </p>
+                <div className="mt-auto flex w-full flex-col items-center">
+                  <div className="my-[clamp(0.35rem,1.15dvh,0.5rem)] h-px w-16 bg-gradient-to-r from-transparent via-[#d4af37]/80 to-transparent sm:w-20" />
+                  <p className="font-serif-body max-w-sm text-[clamp(0.65rem,1.6dvh,0.875rem)] leading-relaxed text-[#dad2c3] italic">
+                    {person.bio}
+                  </p>
+                </div>
               </article>
             </div>
           ))}

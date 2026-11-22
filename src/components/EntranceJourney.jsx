@@ -411,7 +411,7 @@ export default function EntranceJourney({ isNight, onComplete }) {
             Wedding Celebration
           </p>
           <h2 className="font-royal text-[11px] sm:text-sm tracking-[0.14em] uppercase text-[#fbf7ee] font-normal drop-shadow leading-tight">
-            Simran <span className="text-[#dfba5c]">&amp;</span> Sachit
+            Sachit <span className="text-[#dfba5c]">&amp;</span> Simran
           </h2>
         </div>
       </div>
@@ -441,7 +441,7 @@ export default function EntranceJourney({ isNight, onComplete }) {
           </p>
 
           <h1 className="font-cinzel text-lg sm:text-3xl text-[#fdfaf2] font-semibold tracking-[0.12em] mb-2 leading-tight">
-            SIMRAN SAXENA
+            SACHIT SRIVASTAVA
           </h1>
 
           <div className="font-script text-lg sm:text-2xl text-[#dfba5c] my-0.5">
@@ -449,7 +449,7 @@ export default function EntranceJourney({ isNight, onComplete }) {
           </div>
 
           <h1 className="font-cinzel text-lg sm:text-3xl text-[#fdfaf2] font-semibold tracking-[0.12em] mb-2 leading-tight">
-            SACHIT SRIVASTAVA&rsquo;S
+            SIMRAN SAXENA&rsquo;S
           </h1>
 
           <div className="flex items-center gap-3 w-full max-w-xs my-2">

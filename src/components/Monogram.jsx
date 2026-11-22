@@ -1,7 +1,7 @@
 import { useId } from 'react';
 
 /**
- * THE MONOGRAM — the house mark for Simran & Sachit.
+ * THE MONOGRAM — the house mark for Sachit & Simran.
  *
  * Inspired by the carved-arch reference (a cream-paper plaque): a tall mehrab
  * drawn as fine single-weight line-work, two interlocking serif S letterforms
@@ -56,7 +56,7 @@ function Lotus({ x, y, s = 1, opacity = 1, gold, width = 0.7 }) {
   );
 }
 
-export default function Monogram({ className = '', title = 'Simran & Sachit monogram' }) {
+export default function Monogram({ className = '', title = 'Sachit & Simran monogram' }) {
   const uid = useId().replace(/:/g, '');
   const gold = `mono-gold-${uid}`;
 
