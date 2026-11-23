@@ -96,6 +96,15 @@ export default function App() {
     setStage('handoff');
   };
 
+  const handleResetToEntrance = () => {
+    if ('scrollRestoration' in window.history) {
+      window.history.scrollRestoration = 'manual';
+    }
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    setRevealed(false);
+    setStage('entrance');
+  };
+
   useEffect(() => {
     if (stage !== 'handoff') return;
     // Commit one frame at opacity 0 so the browser can actually animate to 1.
@@ -196,7 +205,7 @@ export default function App() {
                 condition: the finale is painted as a night palace with the
                 varmala film, and it stays that way regardless of the Day/Night
                 toggle above it. There is no Day variant and no toggle here. */}
-            <FinaleSection />
+            <FinaleSection onExit={handleResetToEntrance} />
           </div>
         </>
       )}
