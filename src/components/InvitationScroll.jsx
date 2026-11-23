@@ -128,13 +128,9 @@ const COUNTDOWN_POSTER = '/assets/scene6/countdown-poster.jpg';
 const COUNTDOWN_PORTRAIT = '/assets/scene6/countdown-portrait.mp4';
 const COUNTDOWN_PORTRAIT_POSTER = '/assets/scene6/countdown-portrait-poster.jpg';
 
-const STERLING_DAY = '/assets/venues/sterling-day.jpg';
-const STERLING_NIGHT = '/assets/venues/sterling-night.jpg';
-
 const WEDDING_FILM = '/assets/venues/rudrakshaa.mp4';
 const WEDDING_POSTER = '/assets/venues/rudrakshaa-poster.jpg';
 
-const ENGAGEMENT_MAP = 'https://maps.app.goo.gl/z6CP5aXyaLV4JvZ38';
 const WEDDING_MAP = 'https://maps.app.goo.gl/6gzA6t5nxyrjVTcp9';
 
 const COUPLE = [
@@ -1149,75 +1145,6 @@ function MapButton({ href, children }) {
   );
 }
 
-/**
- * THE ENGAGEMENT — Sterling Banquet.
- *
- * THIS is the section that benefits most from real re-column, so it is the one
- * that changes arrangement most between breakpoints:
- *
- *   lg and up  — two columns. The venue plate fills the left half edge-to-edge
- *                (it is scenery; it should breathe), the details sit on the
- *                right. Left-right hierarchy, generous negative space.
- *   sm to lg   — one column, plate on top as a wide banner, details beneath.
- *   phones     — one column with a SHORT plate (h-[46dvh]) rather than a
- *                full-height one, so the date, time and map button are visible
- *                without a scroll that hides the artwork entirely.
- *
- * The plate is `object-cover` throughout, but on phones it is anchored to the
- * top so the arch of flowers stays in frame instead of being cropped to a wall.
- */
-function EngagementSection({ isNight }) {
-  return (
-    <Section id="engagement">
-      {/* Desktop: the plate owns the LEFT 54% and the text owns the right. On
-          phones it is the full-bleed background behind the stacked content.
-          `right-[46%]` (not `left-[46%]`) is what puts it on the left. */}
-      <div className="absolute inset-0 lg:right-[46%]">
-        <Backdrop day={STERLING_DAY} night={STERLING_NIGHT} isNight={isNight} />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#04070f]/94 via-[#04070f]/45 to-[#04070f]/25 lg:bg-gradient-to-r lg:from-[#04070f]/40 lg:via-[#04070f]/30 lg:to-[#04070f]/95" />
-      </div>
-
-      {/* Desktop: a clean seam between the plate and the text column, so the
-          artwork does not butt into the heading. */}
-      <div className="absolute inset-0 hidden lg:block lg:bg-gradient-to-r lg:from-transparent lg:via-[#04070f]/70 lg:to-[#04070f]" />
-
-      <div className="relative z-10 mx-auto flex min-h-[92dvh] w-full max-w-6xl flex-col justify-end px-4 pt-[clamp(3.5rem,10dvh,6rem)] pb-[clamp(2rem,7dvh,4rem)] sm:px-8 lg:grid lg:grid-cols-2 lg:items-center lg:gap-12">
-        {/* On desktop this empty column lets the venue artwork own the left
-            half; on phones it collapses and the content sits on the plate. */}
-        <div className="hidden lg:block" />
-
-        <div className="w-full max-w-xl lg:max-w-none">
-          <p className="reveal font-cinzel text-[clamp(0.44rem,1.45vmin,0.7rem)] uppercase tracking-[0.36em] text-[#dfba5c] drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)]">
-            The Engagement
-          </p>
-
-          <h2 className="reveal font-cinzel mt-2 bg-gradient-to-r from-[#ebd6a7] via-[#fff5df] to-[#ebd6a7] bg-clip-text text-[clamp(1.5rem,min(5.4dvh,7vw),3.2rem)] leading-tight font-semibold tracking-[0.06em] text-transparent drop-shadow-[0_4px_22px_rgba(0,0,0,0.95)]">
-            Sterling Banquet
-          </h2>
-
-          <div className="reveal mt-3 flex max-w-[10rem] items-center gap-3 text-[#d4af37]">
-            <span className="h-px flex-1 bg-gradient-to-r from-transparent to-[#d4af37]" />
-            <Heart className="h-3.5 w-3.5 fill-[#d4af37]/30" />
-            <span className="h-px flex-1 bg-gradient-to-l from-transparent to-[#d4af37]" />
-          </div>
-
-          <div className="reveal mt-[clamp(1rem,3dvh,1.75rem)] grid grid-cols-1 gap-3 rounded-2xl border border-[#d4af37]/45 bg-[#080d1a]/72 p-[clamp(0.9rem,2.4dvh,1.5rem)] text-left shadow-[0_22px_60px_rgba(0,0,0,0.8),inset_0_0_26px_rgba(212,175,55,0.07)] backdrop-blur-md sm:grid-cols-2">
-            <InfoRow icon={Calendar} label="Date" value="Thursday, 10 December 2026" />
-            <InfoRow icon={Clock} label="Time" value="06:00 PM onwards" />
-            <div className="sm:col-span-2">
-              <InfoRow icon={MapPin} label="Venue" value="Sterling Banquet, Ghaziabad, Uttar Pradesh 201001" />
-            </div>
-          </div>
-
-          <div className="reveal mt-[clamp(0.9rem,2.4dvh,1.4rem)] flex justify-start">
-            <MapButton href={ENGAGEMENT_MAP}>View On The Map</MapButton>
-          </div>
-        </div>
-      </div>
-    </Section>
-  );
-}
-
 /* ------------------------------------------------------------- CHAPTER 6 ---- */
 /**
  * THE WEDDING — Rudrakshaa Banquet.
@@ -1474,7 +1401,6 @@ export default function InvitationScroll({ isNight }) {
       <CoupleSection isNight={isNight} />
       <StorySection isNight={isNight} portrait={portrait} />
       <CountdownSection isNight={isNight} portrait={portrait} />
-      <EngagementSection isNight={isNight} />
       <WeddingSection />
       <ClosingSection />
     </div>
