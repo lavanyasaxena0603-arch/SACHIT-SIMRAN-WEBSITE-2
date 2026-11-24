@@ -72,8 +72,9 @@ export default function App() {
   // 'entrance' -> only the cinematic entrance (Phase A)
   // 'handoff'  -> entrance frozen underneath, invitation document fading in above it
   // 'story'    -> only the invitation document (Phase B)
-  const [stage, setStage] = useState('entrance');
-  const [revealed, setRevealed] = useState(false);
+  const isDirectStory = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('stage') === 'story';
+  const [stage, setStage] = useState(isDirectStory ? 'story' : 'entrance');
+  const [revealed, setRevealed] = useState(isDirectStory);
 
   // ---- Orientation --------------------------------------------------------
   // THERE IS NO ROTATION EXPERIENCE ANY MORE.
